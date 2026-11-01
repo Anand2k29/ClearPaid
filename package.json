@@ -1,0 +1,15 @@
+{
+  "name": "clearpaid",
+  "version": "0.1.0",
+  "description": "Get paid from abroad: PayPal sandbox invoices, free-tier AI replies, and a rupee money view for freelancers.",
+  "private": true,
+  "license": "MIT",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

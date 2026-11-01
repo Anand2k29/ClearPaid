@@ -1,0 +1,16 @@
+# Internal working notes. Not part of the submitted project.
+process/
+
+# Environment and secrets
+.env
+.env.*
+node_modules/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local invoice store (contains client names and emails)
+data/

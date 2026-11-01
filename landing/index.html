@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClearPaid · Get paid by clients abroad, keep more of it</title>
+  <meta name="description" content="ClearPaid helps freelancers and small teams invoice clients abroad through PayPal, approve every AI reply, and see what reaches their bank in rupees.">
+  <style>
+    :root {
+      --ink:#1e1b3a; --muted:#5b5f78; --line:#e4e6f2; --bg:#ffffff; --soft:#f5f5ff;
+      --brand:#4f46e5; --brand-dark:#3730a3; --accent:#0d9488; --ai:#c026d3; --ai-soft:#fae8ff;
+      --ok:#047857; --ok-bg:#d1fae5; --bad:#be123c; --bad-bg:#ffe4e6; --amber:#f59e0b;
+      --hero-a:#eef2ff; --shadow:0 30px 60px -20px rgba(30,27,58,.28);
+    }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink:#e9edf5; --muted:#a3acbd; --line:#2a3140; --bg:#0f1319; --soft:#171c25; --brand:#818cf8; --brand-dark:#6366f1; --accent:#2dd4bf; --ai:#f0abfc; --ai-soft:#3b1f47; --hero-a:#1e1b4b; --ok:#6ee7b7; --ok-bg:#053b2c; --bad:#fda4af; --bad-bg:#3f0d1b; --shadow:0 30px 60px -20px rgba(0,0,0,.6); } }
+    :root[data-theme="dark"] { --ink:#e9edf5; --muted:#a3acbd; --line:#2a3140; --bg:#0f1319; --soft:#171c25; --brand:#818cf8; --brand-dark:#6366f1; --accent:#2dd4bf; --ai:#f0abfc; --ai-soft:#3b1f47; --hero-a:#1e1b4b; --ok:#6ee7b7; --ok-bg:#053b2c; --bad:#fda4af; --bad-bg:#3f0d1b; --shadow:0 30px 60px -20px rgba(0,0,0,.6); }
+
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:"Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); background:var(--bg); line-height:1.6; -webkit-font-smoothing:antialiased; }
+    img { max-width:100%; display:block; }
+    a { color:var(--brand); }
+    p { margin:0; }
+    h1,h2,h3 { margin:0; }
+    .wrap { max-width:1160px; margin:0 auto; padding:0 24px; }
+    .muted { color:var(--muted); }
+    .eyebrow { display:inline-block; color:var(--ai); font-weight:700; font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:14px; }
+    h1 { font-size:56px; line-height:1.06; letter-spacing:-.025em; margin-bottom:20px; }
+    h2 { font-size:40px; line-height:1.12; letter-spacing:-.02em; margin-bottom:14px; }
+    h3 { font-size:19px; margin-bottom:8px; }
+    .lead { font-size:19px; color:var(--muted); max-width:560px; }
+    section { padding:100px 0; position:relative; }
+    .soft { background:var(--soft); }
+    .centre { text-align:center; }
+    .sub { color:var(--muted); font-size:18px; max-width:660px; margin:0 auto 52px; }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:15px 26px; border-radius:12px; background:var(--brand); color:#fff; text-decoration:none; font-weight:600; font-size:16px; border:1px solid var(--brand); box-shadow:0 10px 24px -8px rgba(79,70,229,.6); transition:transform .2s, box-shadow .2s, background .2s; }
+    .btn:hover { background:var(--brand-dark); transform:translateY(-2px); box-shadow:0 16px 30px -10px rgba(79,70,229,.7); }
+    .btn.ghost { background:transparent; color:var(--brand); box-shadow:none; }
+    .btn.ghost:hover { background:var(--hero-a); }
+    .btn.white { background:#fff; color:var(--ink); border-color:#fff; box-shadow:none; }
+    .cta { display:flex; gap:14px; flex-wrap:wrap; }
+
+    /* Navigation */
+    .nav { position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+    .nav .wrap { display:flex; align-items:center; justify-content:space-between; height:70px; gap:18px; }
+    .logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:20px; color:var(--ink); text-decoration:none; white-space:nowrap; }
+    .logo-img { height:42px; width:auto; display:block; }
+    .word { font-weight:800; font-size:21px; letter-spacing:-.02em; background:linear-gradient(90deg,var(--ink) 0%,var(--brand) 55%,var(--accent) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .mark { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--brand),var(--accent)); box-shadow:inset 0 -3px 0 rgba(0,0,0,.15); }
+    .nav .links { display:flex; align-items:center; gap:26px; }
+    .nav .links a:not(.btn) { color:var(--muted); text-decoration:none; font-size:15px; font-weight:500; }
+    .nav .links a:not(.btn):hover { color:var(--ink); }
+    .nav .btn { padding:11px 20px; font-size:15px; box-shadow:none; color:#fff; }
+
+    /* Hero with 3D stage */
+    .hero { background:radial-gradient(900px 500px at 85% 10%, #e0e7ff 0%, transparent 60%), linear-gradient(180deg, var(--hero-a), var(--bg) 75%); padding:40px 0 96px; overflow:hidden; }
+    .hero .wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; }
+    .trust { display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:34px; font-size:14px; color:var(--muted); }
+    .trust span::before { content:"✓"; color:var(--ok); font-weight:800; margin-right:6px; }
+
+    .pill-ok { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--ok-bg); color:var(--ok); }
+    .pill-ai { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--ai-soft); color:var(--ai); }
+
+    .hero-img img { width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; border-radius:24px; box-shadow:var(--shadow); display:block; }
+    /* Logo-free trust strip */
+    .strip { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:26px 0; }
+    .strip .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:18px; font-size:15px; color:var(--muted); }
+    .strip b { color:var(--ink); }
+
+    /* 3D cards */
+    .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; }
+    .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+    .card { position:relative; background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:28px;  transition:transform .35s ease, box-shadow .35s ease; box-shadow:0 1px 0 var(--line), 0 12px 30px -18px rgba(30,27,58,.25); }
+    .card:hover { transform:translateY(-4px); box-shadow:0 30px 50px -20px rgba(30,27,58,.35); }
+    .card p { color:var(--muted); font-size:15px; }
+    .step-no { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,var(--brand),var(--accent)); color:#fff; font-weight:800; margin-bottom:18px; box-shadow:0 10px 20px -8px rgba(79,70,229,.6); transform:translateZ(20px); }
+    .ico svg { width:24px; height:24px; fill:none; stroke:var(--brand); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .ico { width:48px; height:48px; border-radius:14px; background:var(--hero-a); color:var(--brand); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; margin-bottom:18px; }
+
+    .way { display:flex; flex-direction:column; padding:0; overflow:hidden; }
+    .way .pic { height:200px; background:var(--soft); }
+    .way .pic img { width:100%; height:100%; object-fit:cover; }
+    .way .body { padding:26px; display:flex; flex-direction:column; flex:1; }
+    .way .body p { flex:1; margin-bottom:18px; }
+    .way a.more { font-weight:600; text-decoration:none; }
+
+    /* Feature rows */
+    .feature { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
+    .feature + .feature { margin-top:120px; }
+    .feature.flip > :first-child { order:2; }
+    .feature ul { list-style:none; padding:0; margin:22px 0 0; color:var(--muted); }
+    .feature li { position:relative; padding:8px 0 8px 30px; }
+    .feature li::before { content:""; position:absolute; left:0; top:15px; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg,var(--brand),var(--accent)); }
+    .tilt3d { }
+    .tilt3d > div { transform: ; transition:transform .5s ease;  background:var(--bg); border:1px solid var(--line); border-radius:24px; padding:26px; box-shadow:var(--shadow); }
+    .tilt3d:hover > div { transform: ; }
+    .feature.flip .tilt3d > div { transform: ; }
+    .feature.flip .tilt3d:hover > div { transform: ; }
+    .row { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid var(--line); font-size:15px; }
+    .row:last-child { border-bottom:0; }
+    .qr { width:168px; height:168px; margin:8px auto 14px; padding:10px; border-radius:14px; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+    .qr svg { width:148px; height:148px; display:block; }
+    .meter { height:12px; border-radius:999px; overflow:hidden; display:flex; margin:16px 0 8px; }
+    .bubble { background:var(--soft); border-radius:16px; padding:14px 16px; font-size:15px; margin-bottom:12px; }
+    .bubble.me { background:var(--brand); color:#fff; margin-left:40px; }
+
+    /* Security */
+    .sec-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; column-gap:64px; counter-reset:item; }
+    .sec-list li { position:relative; padding:28px 0 28px 64px; border-top:1px solid var(--line); counter-increment:item; }
+    .sec-list li::before { content:counter(item, decimal-leading-zero); position:absolute; left:0; top:30px; font-size:13px; font-weight:700; letter-spacing:.06em; color:var(--brand); }
+    .sec-list li::after { content:""; position:absolute; left:0; top:-1px; width:40px; height:2px; background:var(--brand); }
+    .sec-list h3 { font-size:18px; margin-bottom:6px; }
+    .sec-list p { font-size:15px; line-height:1.6; }
+    .sec { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+    .sec .card { padding:24px; }
+    .sec h3 { font-size:17px; }
+    .sec p { font-size:14px; }
+    .honest { border:1px dashed var(--brand); border-radius:18px; padding:28px; background:var(--bg); margin-top:30px; }
+
+    /* Pricing */
+    .plans { display:grid; grid-template-columns:1fr 1fr; gap:26px; max-width:900px; margin:0 auto; }
+    .plan { padding:36px; }
+    .plan.featured { border:2px solid var(--brand); transform:translateY(-10px); }
+    .plan .price { font-size:40px; font-weight:800; margin:10px 0 6px; letter-spacing:-.02em; }
+    .plan ul { margin:18px 0 0; padding-left:20px; color:var(--muted); font-size:15px; }
+    .plan li { margin-bottom:8px; }
+
+    details { border-bottom:1px solid var(--line); padding:20px 0; }
+    summary { font-weight:600; font-size:17px; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
+    summary::after { content:"+"; color:var(--brand); font-size:22px; line-height:1; }
+    details[open] summary::after { content:"−"; }
+    details p { color:var(--muted); margin-top:12px; max-width:760px; }
+    .faq { max-width:820px; margin:0 auto; }
+
+    /* Closing */
+    .closing { background:linear-gradient(135deg,#312e81 0%,#4f46e5 45%,#0f766e 100%); color:#fff; padding:96px 0; text-align:center; position:relative; overflow:hidden; }
+    .closing h2 { color:#fff; }
+    .closing p { color:#dfe3ff; font-size:18px; max-width:580px; margin:0 auto 30px; }
+
+    footer { padding:44px 0 36px; font-size:14px; color:var(--muted); border-top:1px solid var(--line); }
+    footer .wrap { display:grid; grid-template-columns:2fr 1fr 1fr; gap:30px; }
+    footer a { color:var(--muted); text-decoration:none; display:block; margin-bottom:8px; }
+    footer a:hover { color:var(--ink); }
+    footer h4 { margin:0 0 12px; font-size:14px; color:var(--ink); }
+
+    .stats { border-bottom:1px solid var(--line); padding:44px 0; }
+    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:28px; }
+    .stat-n { font-size:40px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+    .stat-l { color:var(--muted); font-size:14px; margin-top:6px; }
+    .dev { background:#0f0d24; color:#e5e7f5; padding:96px 0; }
+    .dev h2 { color:#fff; }
+    .dev-eye { color:#a5b4fc; }
+    .dev-sub { color:#b9bdd6; font-size:17px; margin:14px 0 22px; max-width:520px; }
+    .dev-list { margin:0; padding-left:20px; color:#b9bdd6; }
+    .dev-list li { margin-bottom:8px; }
+    .dev-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+    .code { margin:0; background:#1a1736; border:1px solid #2f2a5a; border-radius:16px; padding:24px; overflow-x:auto; font-family:Consolas, "Courier New", monospace; font-size:14px; line-height:1.7; color:#e5e7f5; }
+    .code .c { color:#8b8fb8; }
+    /* Motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+    }
+
+    /* Tablet */
+    @media (max-width:1024px) {
+      .stats-grid { grid-template-columns:1fr 1fr; }
+      .dev-grid { grid-template-columns:1fr; gap:36px; }
+      h1 { font-size:44px; }
+      h2 { font-size:34px; }
+      .hero .wrap, .feature { grid-template-columns:1fr; gap:48px; }
+      .feature.flip > :first-child { order:0; }
+      .grid4, .sec { grid-template-columns:1fr 1fr; }
+      .grid3 { grid-template-columns:1fr 1fr; }
+      .nav .links a:not(.btn) { display:none; }
+    }
+    /* Phone */
+    @media (max-width:640px) {
+      .wrap { padding:0 18px; }
+      section { padding:72px 0; }
+      .hero { padding:56px 0 80px; }
+      h1 { font-size:34px; }
+      h2 { font-size:28px; }
+      .grid4, .grid3, .sec, .plans, .sec-list { grid-template-columns:1fr; }
+      .stats-grid { grid-template-columns:1fr; }
+      .plan.featured { transform:none; }
+      .cta { flex-direction:column; }
+      .cta .btn { width:100%; }
+      footer .wrap { grid-template-columns:1fr; }
+      .card:hover { transform:none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="logo" href="#top"><img class="logo-img" src="assets/clearpaid-lockup.png" alt="ClearPaid" width="188" height="42"></a>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#ways">Use cases</a>
+      <a href="#features">Features</a>
+      <a href="#security">Security</a>
+      <a href="#pricing">Pricing</a>
+      <a class="btn" href="../freelancer/index.html">Open the app</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Invoicing for freelancers and small teams</span>
+      <h1>Get paid by clients abroad. Know exactly what reaches your bank.</h1>
+      <p class="lead">Send invoices through PayPal, approve every AI reply before it goes out, and see the rupees you will receive after fees and conversion.</p>
+      <div class="cta" style="margin-top:34px;">
+        <a class="btn" href="../freelancer/index.html">Open the app</a>
+        <a class="btn ghost" href="#how">See how it works</a>
+      </div>
+      <div class="trust">
+        <span>Built on PayPal's sandbox</span>
+        <span>You approve every message</span>
+        <span>No card or bank data stored by us</span>
+      </div>
+    </div>
+
+    <div class="hero-img"><img src="assets/hero.jpg" alt="A freelancer working from a home office" width="1400" height="1050"></div>
+  </div>
+</header>
+
+<!-- TRUST STRIP -->
+<div class="stats" aria-label="Key figures">
+  <div class="wrap stats-grid">
+    <div><div class="stat-n">85%</div><div class="stat-l">of freelancers face late payments at least sometimes (Remote, 2025)</div></div>
+    <div><div class="stat-n">439M</div><div class="stat-l">PayPal active accounts worldwide, June 2026 (SEC filing)</div></div>
+    <div><div class="stat-n">0</div><div class="stat-l">card or bank details stored by ClearPaid</div></div>
+    <div><div class="stat-n">100%</div><div class="stat-l">of messages and payments approved by you before they go out</div></div>
+  </div>
+</div>
+
+<!-- DEVELOPERS -->
+<section class="dev">
+  <div class="wrap dev-grid">
+    <div>
+      <span class="eyebrow dev-eye">For developers</span>
+      <h2>Invoices as an API, with every step logged</h2>
+      <p class="dev-sub">Create an invoice, send it through PayPal, then check its status. The server keeps the record, signs proofs, and refuses duplicates.</p>
+      <ul class="dev-list">
+        <li>Bearer-token access on every call</li>
+        <li>Idempotent: the same invoice number cannot be created twice</li>
+        <li>PayPal webhooks verified by signature and checked for freshness</li>
+      </ul>
+    </div>
+    <pre class="code" aria-label="Example API calls"><code><span class="c"># create an invoice (needs your access token)</span>
+POST /api/invoices
+{ "invoiceNumber": "FP-2026-001",
+  "customerEmail": "client@example.com",
+  "amount": 500, "currency": "USD" }
+<span class="c"># 201 Created: { "id": "INV2-...", "status": "DRAFT" }</span>
+
+POST /api/invoices/{id}/send
+<span class="c"># PayPal emails the invoice to the client</span></code></pre>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <div class="centre">
+      <span class="eyebrow">How it works</span>
+      <h2>From client bill to money in your account</h2>
+      <p class="sub">Four steps. Anything that touches a client or money waits for your approval.</p>
+    </div>
+    <div class="grid4">
+      <div class="card"><div class="step-no">1</div><h3>Scan or upload the bill</h3><p>A photo, PDF or email is read on your device. You check every field before it is used.</p></div>
+      <div class="card"><div class="step-no">2</div><h3>Send through PayPal</h3><p>The invoice is created and emailed to the client. PayPal confirms each payment.</p></div>
+      <div class="card"><div class="step-no">3</div><h3>Reply, with your approval</h3><p>Type or speak the client's message. The AI suggests a reply, and nothing is sent until you do it.</p></div>
+      <div class="card"><div class="step-no">4</div><h3>Know what arrives</h3><p>See the rupees after fees and conversion, and export a monthly ledger for your accountant.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section id="ways" class="soft">
+  <div class="wrap">
+    <div class="centre">
+      <span class="eyebrow">Use cases</span>
+      <h2>Built for how freelancers actually work</h2>
+      <p class="sub">Start with one invoice, or run a shared project with other people.</p>
+    </div>
+    <div class="grid3">
+      <article class="card way">
+        <div class="pic"><img src="assets/invoice.svg" alt="An invoice marked as sent to the client"></div>
+        <div class="body">
+          <h3>One client, one invoice</h3>
+          <p>Scan the bill, check the details, and send it through PayPal. Share a signed proof when the client asks for one.</p>
+          <a class="more" href="../freelancer/index.html">Open invoices →</a>
+        </div>
+      </article>
+      <article class="card way">
+        <div class="pic"><img src="assets/team.jpg" alt="Three colleagues looking at one laptop" onerror="this.onerror=null;this.src='assets/team.svg'"></div>
+        <div class="body">
+          <h3>Shared project</h3>
+          <p>One client, several freelancers. Each person is invoiced for their own share, and the app tracks what is paid and what is owed.</p>
+          <a class="more" href="../freelancer/index.html">Set up a project →</a>
+        </div>
+      </article>
+      <article class="card way">
+        <div class="pic"><img src="assets/payment.jpg" alt="A person checking their phone at a café" onerror="this.onerror=null;this.src='assets/hero.svg'"></div>
+        <div class="body">
+          <h3>Money and records</h3>
+          <p>See what reaches your bank after fees, compare routes, and download a monthly ledger for your accountant.</p>
+          <a class="more" href="../freelancer/index.html">Open the money view →</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <div class="feature">
+      <div>
+        <span class="eyebrow">Proof of invoice</span>
+        <h2>Give the client proof they can check</h2>
+        <p class="muted">Each proof is signed by the app. Its QR code opens a public page that shows the invoice number, amount, date and status, and never shows contact details.</p>
+        <ul>
+          <li>Signed with a server secret, so details cannot be changed unnoticed</li>
+          <li>Shared only after you tick the approval box</li>
+          <li>Sent by WhatsApp or email, from your own app</li>
+        </ul>
+      </div>
+      <div class="tilt3d">
+        <div>
+          <div class="row"><span>Sample invoice FP-2026-001</span><span class="pill-ai">Sample</span></div>
+          <div class="qr" id="sampleQr" role="img" aria-label="Sample QR code that opens the ClearPaid app"></div>
+          <div class="row"><span class="muted">Amount</span><span>$500.00</span></div>
+          <div class="row"><span class="muted">Issued</span><span>1 Nov 2026</span></div>
+          <div class="row"><span class="muted">Signature</span><span>Signed by the server</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature flip">
+      <div>
+        <span class="eyebrow">Shared projects</span>
+        <h2>Split a client's project fairly</h2>
+        <p class="muted">Set each person's share. The app checks that shares add up to 100% and splits the total to the cent, so no one loses a rounding difference.</p>
+        <ul>
+          <li>Each collaborator is invoiced for their own share</li>
+          <li>Live status for every share, with a running total of what is owed</li>
+          <li>Routing to each person's own PayPal account is planned, not yet built</li>
+        </ul>
+      </div>
+      <div class="tilt3d">
+        <div>
+          <div class="row"><span>Asha</span><span class="pill-ok">Paid · $500</span></div>
+          <div class="row"><span>Ravi</span><span class="pill-ai">Invoice sent · $300</span></div>
+          <div class="row"><span>Meera</span><span style="color:var(--bad);font-weight:600;">Not invoiced · $200</span></div>
+          <div class="meter"><span style="width:50%;background:var(--brand)"></span><span style="width:30%;background:var(--accent)"></span><span style="width:20%;background:var(--line)"></span></div>
+          <p class="muted" style="font-size:13px;">The app holds no money. Each share is paid to its owner.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div>
+        <span class="eyebrow">Speak or type</span>
+        <h2>Reply by voice, then check the words</h2>
+        <p class="muted">Dictate a client's message, or upload a voice note. The text appears for you to correct before the AI reads it.</p>
+        <ul>
+          <li>English dictation through your browser's built-in speech service</li>
+          <li>Voice notes turned into text by a speech-to-text model</li>
+          <li>Amounts and dates are confirmed separately, because numbers are easy to mishear</li>
+        </ul>
+      </div>
+      <div class="tilt3d">
+        <div>
+          <div class="bubble">"Sorry for the delay, I'll pay this on Friday."</div>
+          <div class="bubble me">Thanks. I'll check the payment on Monday.</div>
+          <div class="row"><span>Reading</span><span class="pill-ai">Promises to pay</span></div>
+          <div class="row"><span>Suggested reply</span><span class="muted">Waiting for you</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section id="security" class="soft">
+  <div class="wrap">
+    <div class="centre">
+      <span class="eyebrow">Security</span>
+      <h2>Strict by default, because money is involved</h2>
+      <p class="sub">PayPal holds card and bank details. We never do. Here is what the build enforces today.</p>
+    </div>
+    <ul class="sec-list">
+      <li><h3>Access token</h3><p class="muted">Every API call needs a bearer token, compared in constant time. It stays in the browser tab only.</p></li>
+      <li><h3>Locked-down pages</h3><p class="muted">A strict Content Security Policy, no framing, no MIME sniffing, and no caching of API responses.</p></li>
+      <li><h3>Rate limits</h3><p class="muted">Per-minute limits for every caller, plus per-minute and daily caps on AI calls.</p></li>
+      <li><h3>Signed proofs</h3><p class="muted">HMAC-SHA256 signatures. Any change to the details breaks the signature.</p></li>
+      <li><h3>No double sends</h3><p class="muted">Duplicate invoice numbers and repeat sends are refused. Webhooks must be signed and recent.</p></li>
+      <li><h3>AI stays on topic</h3><p class="muted">Off-topic and rule-changing requests are refused before any model runs.</p></li>
+      <li><h3>Scans stay local</h3><p class="muted">Bill photos and PDFs are read in your browser and are not uploaded.</p></li>
+      <li><h3>Quiet errors</h3><p class="muted">Server and provider errors return a generic message. Keys never reach the browser.</p></li>
+    </ul>
+    <div class="honest">
+      <h3>Not finished yet</h3>
+      <p class="muted">We will not claim more than the build does. Before real customers we still need user accounts with sign-in, HTTPS on a public domain, removal of the remaining inline scripts, an independent security review, and a written data-retention schedule. See <a href="../legal/security.html">Security &amp; Data</a>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="centre">
+      <span class="eyebrow">Pricing</span>
+      <h2>Free while we test</h2>
+      <p class="sub">PayPal's own fees apply to real payments, and we will show them before you pay.</p>
+    </div>
+    <div class="plans">
+      <div class="card plan">
+        <h3>Prototype</h3>
+        <div class="price">Free</div>
+        <p class="muted">For trying the app on PayPal's sandbox.</p>
+        <ul>
+          <li>Invoices in the sandbox</li>
+          <li>Reply reading and drafts</li>
+          <li>Money view and monthly ledger</li>
+        </ul>
+      </div>
+      <div class="card plan featured">
+        <h3>Live (planned)</h3>
+        <div class="price">To be set</div>
+        <p class="muted">For real freelancers, after a security review and sign-in are in place.</p>
+        <ul>
+          <li>Live PayPal account, with your fees shown up front</li>
+          <li>User accounts and sign-in</li>
+          <li>Support and a data-retention policy</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="soft">
+  <div class="wrap">
+    <div class="centre" style="margin-bottom:34px;"><span class="eyebrow">FAQ</span><h2>Questions</h2></div>
+    <div class="faq">
+      <details><summary>Does the app send money?</summary><p>No. Clients pay PayPal. The app creates and sends invoices and shows what PayPal reports. It never moves money between people.</p></details>
+      <details><summary>Does AI send messages for me?</summary><p>No. It suggests a reply, and you copy it or share it yourself. Nothing is sent automatically.</p></details>
+      <details><summary>What happens to my bill photos?</summary><p>Scans are read on your device and not uploaded to our server. Text recognition downloads its language data once from a public CDN.</p></details>
+      <details><summary>Can several freelancers share one project?</summary><p>Yes. Each person gets their own invoice for their share and is paid separately. The app does not hold the money.</p></details>
+      <details><summary>Is this tax or legal advice?</summary><p>No. The money view and checklists are estimates and guides. Ask a chartered accountant about tax, and your bank about export documents.</p></details>
+      <details><summary>Can I use it with a real PayPal account now?</summary><p>Not yet. The current build works on PayPal's sandbox only. A live release needs a security review, sign-in and a data policy first.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING -->
+<section class="closing">
+  <div class="wrap">
+    <h2>Send your first invoice in the sandbox</h2>
+    <p>Open the app, paste a sample client email, and see the rupees you would receive.</p>
+    <a class="btn white" href="../freelancer/index.html">Open the app</a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <span class="logo" style="margin-bottom:12px;"><img class="logo-img" src="assets/clearpaid-lockup.png" alt="ClearPaid" width="188" height="42"></span>
+      <p style="margin-top:12px;max-width:340px;">Hackathon prototype. Built on PayPal's sandbox. Estimates are not financial or tax advice.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <a href="../freelancer/index.html">Open the app</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <a href="../legal/privacy.html">Privacy Policy</a>
+      <a href="../legal/terms.html">Terms of Use</a>
+      <a href="../legal/disclaimer.html">Disclaimer</a>
+      <a href="../legal/security.html">Security &amp; Data</a>
+    </div>
+  </div>
+  <div class="wrap" style="margin-top:30px;font-size:13px;">
+    <span>© 2026 ClearPaid · Images: original artwork or licensed photographs. Photo credits to be added before publication.</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+  // Sample QR code: encodes this site’s address so it opens the app when scanned.
+  (function () {
+    var q = qrcode(0, "M");
+    q.addData(window.location.origin + "/freelancer/index.html");
+    q.make();
+    document.getElementById("sampleQr").innerHTML = q.createSvgTag(4, 2);
+  })();
+</script>
+</body>
+</html>

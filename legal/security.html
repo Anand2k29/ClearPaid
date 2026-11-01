@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security &amp; Data · ClearPaid</title>
+  <link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<main class="legal">
+  <p class="crumbs"><a href="../landing/index.html">Home</a> · Security &amp; data</p>
+  <h1>Security &amp; data</h1>
+  <p class="updated">What we do today, and what a production release would need.</p>
+
+  <h2>What is in place today</h2>
+  <ul>
+    <li><strong>Secrets stay on the server.</strong> PayPal and AI keys are read from environment variables and sent only in request headers. They are never sent to the browser, never put in URLs, and the health check returns provider names only.</li>
+    <li><strong>Input limits.</strong> Request bodies are capped at 64 KB. Invoice fields and client messages are length-checked and validated before any provider is called.</li>
+    <li><strong>Internal files are not served.</strong> The server does not serve the source, tests, process notes or environment files.</li>
+    <li><strong>Documents stay on the device.</strong> Bill and document reading runs in the browser. Files are capped at 10 MB.</li>
+    <li><strong>Injection resistance.</strong> Client text is treated as data. Instruction-like text is flagged and kept away from the model. Model output is validated against a fixed list of labels.</li>
+    <li><strong>No money moves from our side.</strong> “Paid” is only accepted after PayPal confirms it.</li>
+    <li><strong>Automated tests</strong> cover the server, the AI fallback, and the calculations.</li>
+  </ul>
+
+  <h2>Known limits</h2>
+  <ul>
+    <li>The prototype has no user accounts or login. Anyone who can open the app on a shared computer can see saved invoices.</li>
+    <li>Pages load fonts and libraries from public CDNs, which see visitors’ IP addresses.</li>
+    <li>Rate limits on free AI tiers can cause fallbacks to rule-based replies.</li>
+    <li>No security audit has been carried out.</li>
+  </ul>
+
+  <h2>Before any real use</h2>
+  <ul>
+    <li>Add user authentication and encrypted storage for invoice data.</li>
+    <li>Add HTTPS, a content security policy with pinned script hashes, and rate limiting on the API.</li>
+    <li>Commission an independent security review and a penetration test.</li>
+    <li>Confirm PCI DSS scope and payment-provider obligations with PayPal and your legal adviser.</li>
+    <li>Set data-retention periods and a deletion process.</li>
+  </ul>
+
+  <h2>Reporting a problem</h2>
+  <p>Please report security issues privately. <span class="placeholder">[security contact email to be added]</span></p>
+</main>
+<footer class="legal-foot"><a href="../landing/index.html">Home</a> · <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="disclaimer.html">Disclaimer</a></footer>
+</body>
+</html>
