@@ -311,7 +311,8 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
     }
 
     // Static files, excluding internal folders and dotfiles.
-    const rel = p === "/" ? "/app/index.html" : p;
+    const ROUTES = { "/": "/landing/index.html", "/app": "/freelancer/index.html" };
+    const rel = ROUTES[p] || p;
     const parts = rel.split("/").filter(Boolean);
     if (parts.some(part => BLOCKED.includes(part) || part.startsWith("."))) {
       res.writeHead(404);
