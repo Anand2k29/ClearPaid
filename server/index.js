@@ -328,7 +328,10 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         res.writeHead(404);
         return res.end("Not found");
       }
-      res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+      const ext = path.extname(file);
+      // Pages stay fresh, while images, styles and scripts are cached for a day to speed up repeat visits.
+      const cache = ext === ".html" ? "no-cache" : "public, max-age=86400";
+      res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream", "Cache-Control": cache });
       res.end(data);
     });
   };
