@@ -303,7 +303,6 @@ collections-assistant/
 │       └── i18n.js            English and Hindi labels
 ├── kyc/                    secondary prototype: ID capture checks and format checks
 │   └── lib/                quality, checks, extract
-├── app/                    secondary prototype: collections assistant with sample data
 ├── legal/                  privacy, terms, disclaimer, security and data pages
 ├── server/
 │   ├── index.js            HTTP server, routes, static files, security headers
