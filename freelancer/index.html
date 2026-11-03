@@ -78,6 +78,7 @@
     .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line); }
     .signin { max-width:520px; margin:0 auto 14px; text-align:left; }
     .paypal-btn { display:flex; align-items:center; justify-content:center; text-decoration:none; margin:12px 0 14px; }
+    .demo-btn { display:flex; align-items:center; justify-content:center; text-decoration:none; margin:0 0 14px; }
     .dev-access { font-size:13px; color:var(--muted); margin-top:8px; }
     .dev-access summary { cursor:pointer; }
     .account { display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:14px; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:12px; }
@@ -123,8 +124,9 @@
 
   <div id="tokenBox" class="card hidden signin">
     <h2>Sign in</h2>
-    <p class="muted">Use your PayPal account. ClearPaid never sees your PayPal password.</p>
+    <p class="muted">Sign in with your PayPal account, or try the demo. The demo uses PayPal sandbox data and cannot send invoices. ClearPaid never sees your PayPal password.</p>
     <a class="btn paypal-btn" href="/auth/paypal/start">Continue with PayPal</a>
+    <a class="btn ghost demo-btn" href="/auth/demo">Try the demo</a>
     <details class="dev-access">
       <summary>Developer access</summary>
       <label>Access token<input id="tokenInput" type="password" autocomplete="off" spellcheck="false"></label>
@@ -380,7 +382,9 @@
     renderConfigPills();
     const me = await fetch("/api/me").then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (me && me.user) {
-      $("accountName").textContent = `Signed in as ${me.user.name || me.user.email}`;
+      $("accountName").textContent = me.user.provider === "demo"
+        ? "Demo mode. Sandbox data only. Sign in with PayPal to send invoices."
+        : `Signed in as ${me.user.name || me.user.email}`;
       $("accountBar").classList.remove("hidden");
       $("tokenBox").classList.add("hidden");
     } else if (config.authRequired && !accessToken()) {
@@ -399,10 +403,14 @@
     VIEWS.forEach(v => $("view-" + v).classList.toggle("hidden", v !== name));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  // On desktop, each feature opens once in its own named tab. Clicking it again brings that tab forward,
+  // so tabs do not pile up. On phones, features switch on the same screen, because extra tabs are awkward there.
+  const DESKTOP = window.matchMedia("(min-width: 900px)");
   document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
     const name = tab.dataset.tab;
-    if (!VIEW_PARAM && name !== "invoices") {
-      window.open(`index.html?view=${name}`, "_blank", "noopener");
+    if (!VIEW_PARAM && name !== "invoices" && DESKTOP.matches) {
+      const win = window.open(`index.html?view=${name}`, `clearpaid-${name}`);
+      if (win) win.focus();
       return;
     }
     showView(name);

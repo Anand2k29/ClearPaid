@@ -405,3 +405,36 @@ test("/app redirects to the app folder, so its scripts and images load", async (
     assert.equal(r.headers.get("location"), "/freelancer/index.html");
   });
 });
+
+test("the demo sign-in gives a session cookie, and demo accounts cannot send invoices", async () => {
+  const AUTH = require("../server/auth.js");
+  const authStore = AUTH.createAuthStore();
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: { sendInvoice: async () => ({}) }, apiToken: TOKEN, auth: { store: authStore, clientId: "cid", clientSecret: "sec", demoEnabled: true }, limiter: createRateLimiter({ max: 1000, windowMs: 60000 }) }));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const demo = await fetch(`${base}/auth/demo`, { redirect: "manual" });
+    assert.equal(demo.status, 302);
+    const cookie = demo.headers.get("set-cookie").split(";")[0];
+    const me = await fetch(`${base}/api/me`, { headers: { Cookie: cookie } });
+    assert.equal((await me.json()).user.provider, "demo");
+    const send = await fetch(`${base}/api/invoices/INV2-1/send`, { method: "POST", headers: { Cookie: cookie } });
+    assert.equal(send.status, 403);
+    assert.match((await send.json()).error, /Demo accounts cannot send/);
+  } finally {
+    server.close();
+  }
+});
+
+test("the demo can be switched off on the server", async () => {
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: null, apiToken: TOKEN, auth: { store: require("../server/auth.js").createAuthStore(), demoEnabled: false } }));
+  try {
+    const r = await fetch(`http://127.0.0.1:${server.address().port}/auth/demo`, { redirect: "manual" });
+    assert.equal(r.status, 404);
+  } finally {
+    server.close();
+  }
+});

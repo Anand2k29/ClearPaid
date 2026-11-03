@@ -137,6 +137,17 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         return res.end("PayPal sign-in could not be completed. Please try again.");
       }
     }
+    // Demo sign-in for judges and visitors. No PayPal login, no token. Demo accounts cannot send invoices or reminders.
+    if (req.method === "GET" && p === "/auth/demo") {
+      if (!auth || auth.demoEnabled === false) {
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end("The demo is not available on this server.");
+      }
+      const base = auth.publicUrl || `http://${req.headers.host}`;
+      const sid = auth.store.createSession({ id: "demo", email: "demo@clearpaid.example", name: "Demo freelancer", provider: "demo" });
+      res.writeHead(302, { Location: "/app", "Set-Cookie": AUTH.sessionCookie(sid, { secure: base.startsWith("https://") }) });
+      return res.end();
+    }
     if (req.method === "GET" && p === "/auth/logout") {
       const sid = AUTH.sessionIdFrom(req);
       if (auth && sid) auth.store.destroySession(sid);
@@ -258,6 +269,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
             return send(res, 200, PROJECT.summarise(project, invoicesById(store)));
           }
           if (req.method === "POST" && projectMatch[2]) {
+            if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
             if (!paypal) return send(res, 503, { error: "PayPal is not configured. Invoices cannot be sent yet." });
             const results = [];
             for (const c of project.collaborators) {
@@ -297,6 +309,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         const reminderMatch = p.match(/^\/api\/reminders\/([^/]+)\/(approve|snooze)$/);
         if (store && req.method === "POST" && reminderMatch) {
           if (reminderMatch[2] === "snooze") return send(res, 200, R.snoozeReminder(reminderMatch[1], { store }));
+          if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
           if (!paypal) return send(res, 503, { error: "PayPal is not configured. Reminders cannot be sent yet." });
           return send(res, 200, await R.approveReminder(reminderMatch[1], { store, paypal }));
         }
@@ -338,6 +351,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         }
         const sendMatch = p.match(/^\/api\/invoices\/([^/]+)\/send$/);
         if (req.method === "POST" && sendMatch) {
+          if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
           const prior = store && store.get(sendMatch[1]);
           if (prior && prior.sentAt) return send(res, 409, { error: "This invoice was already sent." });
           const result = await paypal.sendInvoice(sendMatch[1]);
@@ -396,7 +410,7 @@ function start({ port = Number(process.env.PORT) || 3000, env = process.env } = 
   const ai = { providers: configuredProviders(env), cooldowns: new Map() };
   const store = createStore(env.DATA_FILE || path.join(ROOT, "data", "store.json"));
   const apiToken = env.API_TOKEN || null;
-  const auth = { store: AUTH.createAuthStore(), clientId: env.PAYPAL_CLIENT_ID || null, clientSecret: env.PAYPAL_CLIENT_SECRET || null, publicUrl: env.PUBLIC_URL || null };
+  const auth = { store: AUTH.createAuthStore(), clientId: env.PAYPAL_CLIENT_ID || null, clientSecret: env.PAYPAL_CLIENT_SECRET || null, publicUrl: env.PUBLIC_URL || null, demoEnabled: env.DEMO_ENABLED !== "false" };
   const server = http.createServer(createHandler({ paypal, ai, store, webhookId: env.PAYPAL_WEBHOOK_ID || null, apiToken, proofSecret: env.PROOF_SECRET || null, publicUrl: env.PUBLIC_URL || null, auth }));
   // Listen on localhost only by default. Set HOST to expose the server, and only behind HTTPS.
   const host = env.HOST || "127.0.0.1";
