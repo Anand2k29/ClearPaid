@@ -76,6 +76,12 @@
     .drop-text .muted { font-size:12px; margin:0; }
     .or { display:flex; align-items:center; gap:10px; margin:14px 0 10px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
     .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line); }
+    .signin { max-width:520px; margin:0 auto 14px; text-align:left; }
+    .paypal-btn { display:flex; align-items:center; justify-content:center; text-decoration:none; margin:12px 0 14px; }
+    .dev-access { font-size:13px; color:var(--muted); margin-top:8px; }
+    .dev-access summary { cursor:pointer; }
+    .account { display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:14px; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:12px; }
+    .account a { color:var(--brand); font-weight:600; text-decoration:none; }
     .toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:11px 16px; border-radius:12px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90%; }
     .toast.show { opacity:1; }
     .foot { font-size:12px; color:var(--muted); text-align:center; margin-top:18px; line-height:1.6; }
@@ -113,11 +119,19 @@
 
   <div id="banner" class="banner hidden" data-i18n="banner.demo"></div>
 
-  <div id="tokenBox" class="card hidden" style="margin-bottom:12px;">
-    <h2>Enter your access token</h2>
-    <p class="muted">The server requires a token. It is kept only in this browser tab and is cleared when you close it.</p>
-    <label>Access token<input id="tokenInput" type="password" autocomplete="off" spellcheck="false"></label>
-    <button class="btn" onclick="saveToken()">Unlock</button>
+  <div id="tokenBox" class="card hidden signin">
+    <h2>Sign in</h2>
+    <p class="muted">Use your PayPal account. ClearPaid never sees your PayPal password.</p>
+    <a class="btn paypal-btn" href="/auth/paypal/start">Continue with PayPal</a>
+    <details class="dev-access">
+      <summary>Developer access</summary>
+      <label>Access token<input id="tokenInput" type="password" autocomplete="off" spellcheck="false"></label>
+      <button class="btn ghost" onclick="saveToken()">Unlock with token</button>
+    </details>
+  </div>
+  <div id="accountBar" class="account hidden">
+    <span id="accountName"></span>
+    <a href="/auth/logout">Sign out</a>
   </div>
 
   <nav class="tabs" role="tablist">
@@ -362,7 +376,14 @@
   async function loadConfig() {
     try { config = await api("/api/health"); } catch { config = { paypalConfigured: false, aiProviders: [] }; }
     renderConfigPills();
-    if (config.authRequired && !accessToken()) showTokenBox();
+    const me = await fetch("/api/me").then(r => (r.ok ? r.json() : null)).catch(() => null);
+    if (me && me.user) {
+      $("accountName").textContent = `Signed in as ${me.user.name || me.user.email}`;
+      $("accountBar").classList.remove("hidden");
+      $("tokenBox").classList.add("hidden");
+    } else if (config.authRequired && !accessToken()) {
+      showTokenBox();
+    }
   }
 
   // ---- Tabs ----

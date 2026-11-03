@@ -315,3 +315,85 @@ test("AI calls are limited per minute, and the limit is enforced after the quota
     server.close();
   }
 });
+
+// ---- Sign in with PayPal and session access ----
+
+test("sign-in with PayPal says it is not configured until credentials are set", async () => {
+  await withServer(null, async base => {
+    const r = await fetch(`${base}/auth/paypal/start`, { redirect: "manual" });
+    assert.equal(r.status, 503);
+  });
+});
+
+test("sign-in with PayPal redirects to the sandbox login, with a state value", async () => {
+  const AUTH = require("../server/auth.js");
+  const authStore = AUTH.createAuthStore();
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: null, apiToken: TOKEN, auth: { store: authStore, clientId: "cid", clientSecret: "sec", publicUrl: "https://clearpaid.example" } }));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const r = await fetch(`${base}/auth/paypal/start`, { redirect: "manual" });
+    assert.equal(r.status, 302);
+    const loc = new URL(r.headers.get("location"));
+    assert.equal(loc.origin + loc.pathname, "https://www.sandbox.paypal.com/connect");
+    assert.equal(loc.searchParams.get("redirect_uri"), "https://clearpaid.example/auth/paypal/callback");
+    assert.ok(loc.searchParams.get("state"));
+  } finally {
+    server.close();
+  }
+});
+
+test("/api/me is 401 without a session, and returns the user with one", async () => {
+  const AUTH = require("../server/auth.js");
+  const authStore = AUTH.createAuthStore();
+  const sid = authStore.createSession({ id: "u1", email: "freelancer@example.com", name: "Asha" });
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: null, apiToken: TOKEN, auth: { store: authStore, clientId: "cid", clientSecret: "sec" } }));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    assert.equal((await fetch(`${base}/api/me`)).status, 401);
+    const r = await fetch(`${base}/api/me`, { headers: { Cookie: `cp_session=${sid}` } });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).user.email, "freelancer@example.com");
+  } finally {
+    server.close();
+  }
+});
+
+test("a signed-in session can use the API without the access token", async () => {
+  const AUTH = require("../server/auth.js");
+  const authStore = AUTH.createAuthStore();
+  const sid = authStore.createSession({ id: "u1", email: "freelancer@example.com", name: "Asha" });
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: null, apiToken: TOKEN, auth: { store: authStore, clientId: "cid", clientSecret: "sec" }, limiter: createRateLimiter({ max: 1000, windowMs: 60000 }) }));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const without = await fetch(`${base}/api/assistant`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "invoice status" }) });
+    assert.equal(without.status, 401);
+    const withCookie = await fetch(`${base}/api/assistant`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: `cp_session=${sid}` }, body: JSON.stringify({ question: "invoice status" }) });
+    assert.equal(withCookie.status, 200);
+  } finally {
+    server.close();
+  }
+});
+
+test("sign-out clears the session cookie and ends the session", async () => {
+  const AUTH = require("../server/auth.js");
+  const authStore = AUTH.createAuthStore();
+  const sid = authStore.createSession({ id: "u1", email: "a@example.com", name: "A" });
+  const server = await start({ port: 0, env: {} });
+  server.removeAllListeners("request");
+  server.on("request", createHandler({ paypal: null, apiToken: TOKEN, auth: { store: authStore, clientId: "cid", clientSecret: "sec" } }));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const r = await fetch(`${base}/auth/logout`, { redirect: "manual", headers: { Cookie: `cp_session=${sid}` } });
+    assert.equal(r.status, 302);
+    assert.match(r.headers.get("set-cookie"), /Max-Age=0/);
+    assert.equal(authStore.getSession(sid), null);
+  } finally {
+    server.close();
+  }
+});

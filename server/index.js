@@ -12,6 +12,7 @@ const PROJECT = require("./project.js");
 const R = require("./reminders.js");
 const { checkBearer, setSecurityHeaders, createRateLimiter, publicError } = require("./security.js");
 const PROOF = require("./proof.js");
+const AUTH = require("./auth.js");
 
 // Invoice records keyed by PayPal invoice id, for project summaries.
 function invoicesById(store) {
@@ -74,9 +75,15 @@ function validateInvoice(b) {
 }
 
 // Routes that do not need the access token. The webhook is authenticated by PayPal's signature instead.
-const PUBLIC_API = new Set(["/api/health", "/api/webhooks/paypal"]);
+const PUBLIC_API = new Set(["/api/health", "/api/webhooks/paypal", "/api/me"]);
 
-function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiToken = null, proofSecret = null, publicUrl = null, aiLimiter = createRateLimiter({ max: 15, windowMs: 60000 }), dailyLimiter = createRateLimiter({ max: 300, windowMs: 86400000 }), limiter = createRateLimiter({ max: 60, windowMs: 60000 }), root = ROOT }) {
+// The signed-in user for this request, from the session cookie, or null.
+function sessionUser(req, auth) {
+  if (!auth) return null;
+  return auth.store.getSession(AUTH.sessionIdFrom(req));
+}
+
+function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiToken = null, proofSecret = null, publicUrl = null, auth = null, aiLimiter = createRateLimiter({ max: 15, windowMs: 60000 }), dailyLimiter = createRateLimiter({ max: 300, windowMs: 86400000 }), limiter = createRateLimiter({ max: 60, windowMs: 60000 }), root = ROOT }) {
   return async function handler(req, res) {
     const url = new URL(req.url, "http://localhost");
     const p = decodeURIComponent(url.pathname);
@@ -94,13 +101,48 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
       // The public proof page is open by design. It is protected by its random token and the rate limit above.
       if (isApi && !PUBLIC_API.has(p)) {
         const reason = checkBearer(req, apiToken);
-        if (reason) {
+        if (reason && !sessionUser(req, auth)) {
           res.setHeader("WWW-Authenticate", 'Bearer realm="clearpaid"');
           return send(res, reason === "server access token is not configured" ? 503 : 401, { error: reason === "server access token is not configured" ? "Set API_TOKEN (at least 32 characters) in .env." : "Access token required." });
         }
       }
     }
 
+    // Sign in with PayPal. The client secret stays on the server, and the state value blocks CSRF.
+    if (req.method === "GET" && p === "/auth/paypal/start") {
+      if (!auth || !auth.clientId || !auth.clientSecret) {
+        res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end("Sign in with PayPal is not configured yet.");
+      }
+      const attempt = auth.store.startAttempt();
+      const base = auth.publicUrl || `http://${req.headers.host}`;
+      res.writeHead(302, { Location: AUTH.authorizeUrl({ clientId: auth.clientId, redirectUri: `${base}/auth/paypal/callback`, state: attempt.state, nonce: attempt.nonce }) });
+      return res.end();
+    }
+    if (req.method === "GET" && p === "/auth/paypal/callback") {
+      const base = auth && (auth.publicUrl || `http://${req.headers.host}`);
+      const attempt = auth && auth.store.takeAttempt(url.searchParams.get("state") || "");
+      const code = url.searchParams.get("code");
+      if (!attempt || !code) {
+        res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end("Sign-in link expired or was cancelled. Please try again.");
+      }
+      try {
+        const user = await AUTH.exchangeCode({ code, clientId: auth.clientId, clientSecret: auth.clientSecret, redirectUri: `${base}/auth/paypal/callback` });
+        const sid = auth.store.createSession(user);
+        res.writeHead(302, { Location: "/app", "Set-Cookie": AUTH.sessionCookie(sid, { secure: base.startsWith("https://") }) });
+        return res.end();
+      } catch {
+        res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end("PayPal sign-in could not be completed. Please try again.");
+      }
+    }
+    if (req.method === "GET" && p === "/auth/logout") {
+      const sid = AUTH.sessionIdFrom(req);
+      if (auth && sid) auth.store.destroySession(sid);
+      res.writeHead(302, { Location: "/", "Set-Cookie": AUTH.clearCookie({ secure: (auth && auth.publicUrl || "").startsWith("https://") }) });
+      return res.end();
+    }
     if (isProof && req.method === "GET") {
       const token = p.slice("/proof/".length);
       const rec = store && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? store.all().find(i => i.proofToken === token) : null;
@@ -163,6 +205,10 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
             whatsappUrl: `https://wa.me/?text=${encodeURIComponent(text)}`,
             mailtoUrl: `mailto:${encodeURIComponent(rec.customerEmail || "")}?subject=${encodeURIComponent(`Invoice ${rec.number} proof`)}&body=${encodeURIComponent(text)}`
           });
+        }
+        if (req.method === "GET" && p === "/api/me") {
+          const user = sessionUser(req, auth);
+          return user ? send(res, 200, { user }) : send(res, 401, { error: "Not signed in" });
         }
         if (req.method === "GET" && p === "/api/health") {
           // Provider names only. Keys are never returned.
@@ -345,7 +391,8 @@ function start({ port = Number(process.env.PORT) || 3000, env = process.env } = 
   const ai = { providers: configuredProviders(env), cooldowns: new Map() };
   const store = createStore(env.DATA_FILE || path.join(ROOT, "data", "store.json"));
   const apiToken = env.API_TOKEN || null;
-  const server = http.createServer(createHandler({ paypal, ai, store, webhookId: env.PAYPAL_WEBHOOK_ID || null, apiToken, proofSecret: env.PROOF_SECRET || null, publicUrl: env.PUBLIC_URL || null }));
+  const auth = { store: AUTH.createAuthStore(), clientId: env.PAYPAL_CLIENT_ID || null, clientSecret: env.PAYPAL_CLIENT_SECRET || null, publicUrl: env.PUBLIC_URL || null };
+  const server = http.createServer(createHandler({ paypal, ai, store, webhookId: env.PAYPAL_WEBHOOK_ID || null, apiToken, proofSecret: env.PROOF_SECRET || null, publicUrl: env.PUBLIC_URL || null, auth }));
   // Listen on localhost only by default. Set HOST to expose the server, and only behind HTTPS.
   const host = env.HOST || "127.0.0.1";
   return new Promise(resolve => server.listen(port, host, () => resolve(server)));
