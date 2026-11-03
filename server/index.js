@@ -357,7 +357,12 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
     }
 
     // Static files, excluding internal folders and dotfiles.
-    const ROUTES = { "/": "/landing/index.html", "/app": "/freelancer/index.html" };
+    // /app redirects to the app's real folder, so its relative script and image paths resolve correctly.
+    if (p === "/app") {
+      res.writeHead(302, { Location: "/freelancer/index.html" });
+      return res.end();
+    }
+    const ROUTES = { "/": "/landing/index.html" };
     const rel = ROUTES[p] || p;
     const parts = rel.split("/").filter(Boolean);
     if (parts.some(part => BLOCKED.includes(part) || part.startsWith("."))) {

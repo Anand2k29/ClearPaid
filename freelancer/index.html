@@ -91,8 +91,10 @@
     @media (min-width: 900px) {
       .app { max-width:1180px; padding:0 28px 80px; display:grid; grid-template-columns:220px 1fr; gap:22px; align-items:start; }
       .hero, #banner, #tokenBox, .foot { grid-column:1 / -1; }
-      .tabs { grid-template-columns:1fr; position:sticky; top:16px; grid-column:1; margin-bottom:0; }
-      .tab { justify-content:flex-start; padding:12px 14px; font-size:15px; }
+      .tabs { display:flex; flex-direction:column; gap:4px; position:sticky; top:16px; grid-column:1; margin-bottom:0; padding:10px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+      .tab { justify-content:flex-start; text-align:left; width:100%; padding:12px 14px; font-size:15px; font-weight:600; color:var(--muted); background:transparent; border-radius:12px; }
+      .tab:not([aria-selected="true"]):hover { background:var(--soft); color:var(--ink); }
+      .tab[aria-selected="true"] { background:color-mix(in srgb, var(--brand) 12%, transparent); color:var(--brand); box-shadow:inset 3px 0 0 var(--brand); }
       section[id^="view-"] { grid-column:2; display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; min-width:0; }
       section[id^="view-"] > * { min-width:0; }
       #docInv, #docMoney, #proofPanel, #projectCard { grid-column:1 / -1; }

@@ -397,3 +397,11 @@ test("sign-out clears the session cookie and ends the session", async () => {
     server.close();
   }
 });
+
+test("/app redirects to the app folder, so its scripts and images load", async () => {
+  await withServer(null, async base => {
+    const r = await fetch(`${base}/app`, { redirect: "manual" });
+    assert.equal(r.status, 302);
+    assert.equal(r.headers.get("location"), "/freelancer/index.html");
+  });
+});
