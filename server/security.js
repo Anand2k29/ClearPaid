@@ -29,7 +29,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://res.cloudinary.com",
   "media-src 'self' blob:",
   "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
   "worker-src 'self' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
