@@ -45,8 +45,9 @@ function reminderText(r) {
 }
 
 // Sends one approved reminder through PayPal. Throws with a clear message on any refusal.
-async function approveReminder(invoiceId, { store, paypal, now = Date.now(), dailyCap = DEFAULT_DAILY_CAP }) {
-  const inv = store.get(invoiceId);
+// Only the owner's invoices can be reminded, and the daily cap counts only the owner's reminders.
+async function approveReminder(invoiceId, { store, paypal, ownerId, now = Date.now(), dailyCap = DEFAULT_DAILY_CAP }) {
+  const inv = await store.getInvoice(ownerId, invoiceId);
   if (!inv) throw Object.assign(new Error("Invoice not found."), { status: 404 });
   if (inv.status !== "SENT") throw Object.assign(new Error("Only sent, unpaid invoices can be reminded."), { status: 409 });
   if (!isDueDate(inv.dueDate) || inv.dueDate >= iso(new Date(now))) {
@@ -56,21 +57,21 @@ async function approveReminder(invoiceId, { store, paypal, now = Date.now(), dai
     throw Object.assign(new Error(`This invoice was reminded less than ${MIN_GAP_DAYS} days ago.`), { status: 409 });
   }
   const today = iso(new Date(now));
-  const sentToday = store.all().filter(i => i.lastRemindedAt && iso(new Date(Date.parse(i.lastRemindedAt))) === today).length;
+  const sentToday = (await store.listInvoices(ownerId)).filter(i => i.lastRemindedAt && iso(new Date(Date.parse(i.lastRemindedAt))) === today).length;
   if (sentToday >= dailyCap) {
     throw Object.assign(new Error(`Daily reminder limit of ${dailyCap} reached. Try again tomorrow.`), { status: 429 });
   }
   const record = { id: inv.id, number: inv.number, clientName: inv.clientName, amountUsd: inv.amount, dueDate: inv.dueDate };
   await paypal.remindInvoice(inv.id, reminderText(record));
-  store.upsert(inv.id, { lastRemindedAt: new Date(now).toISOString(), reminderCount: (inv.reminderCount || 0) + 1 });
+  await store.saveInvoice(ownerId, inv.id, { lastRemindedAt: new Date(now).toISOString(), reminderCount: (inv.reminderCount || 0) + 1 });
   return { sent: true, invoiceId: inv.id, number: inv.number };
 }
 
 // Snoozing a reminder reuses the same weekly gap, without sending anything.
-function snoozeReminder(invoiceId, { store, now = Date.now() }) {
-  const inv = store.get(invoiceId);
+async function snoozeReminder(invoiceId, { store, ownerId, now = Date.now() }) {
+  const inv = await store.getInvoice(ownerId, invoiceId);
   if (!inv) throw Object.assign(new Error("Invoice not found."), { status: 404 });
-  store.upsert(inv.id, { lastRemindedAt: new Date(now).toISOString() });
+  await store.saveInvoice(ownerId, inv.id, { lastRemindedAt: new Date(now).toISOString() });
   return { snoozed: true, invoiceId: inv.id };
 }
 

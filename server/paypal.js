@@ -80,6 +80,31 @@ function createPayPalClient({ clientId, clientSecret, fetchImpl = fetch, base = 
       body: { send_to_recipient: true }
     }),
     getInvoice: id => call(`/v2/invoicing/invoices/${encodeURIComponent(id)}`),
+    // Pay link: a PayPal order the client can approve in one click, with no invoice email.
+    // Verified against PayPal's Orders v2 reference: POST /v2/checkout/orders, intent, purchase_units, custom_id.
+    // Not yet verified: application_context.return_url / cancel_url, and the "approve" link name. Check in the sandbox.
+    createOrder: async ({ amount, currency = "USD", customId, description, returnUrl, cancelUrl }) => {
+      const order = await call("/v2/checkout/orders", {
+        method: "POST",
+        body: {
+          intent: "CAPTURE",
+          purchase_units: [{
+            reference_id: customId,
+            custom_id: customId,
+            description: (description || "Invoice payment").slice(0, 127),
+            amount: { currency_code: currency, value: Number(amount).toFixed(2) }
+          }],
+          application_context: { return_url: returnUrl, cancel_url: cancelUrl, user_action: "PAY_NOW" }
+        }
+      });
+      const link = (order.links || []).find(l => l.rel === "approve" || l.rel === "payer-action");
+      return { id: order.id, status: order.status, approveUrl: link ? link.href : null };
+    },
+    // Real fees from the sandbox account. Verified: GET /v1/reporting/transactions, max 31 days per request,
+    // dates in RFC 3339 with seconds. Returns transaction_details (transaction_info.fee_amount, transaction_amount).
+    listTransactions: ({ startDate, endDate }) => call(
+      `/v1/reporting/transactions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&fields=transaction_info&page_size=500`
+    ),
     // Asks PayPal to send its own payment reminder for an open invoice. Endpoint not yet verified in the sandbox.
     remindInvoice: (id, note) => call(`/v2/invoicing/invoices/${encodeURIComponent(id)}/remind`, {
       method: "POST",

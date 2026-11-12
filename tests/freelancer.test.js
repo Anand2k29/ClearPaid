@@ -27,6 +27,22 @@ test("defaults produce a loss between 5% and 10% on a typical invoice", () => {
   assert.ok(r.effectivePct > 5 && r.effectivePct < 10, `effective fee was ${r.effectivePct}%`);
 });
 
+test("invoiceSplit shows who gets what for one invoice", () => {
+  const s = F.invoiceSplit(100, { receivingFeePct: 4, conversionMarkupPct: 3, withdrawalFee: 0, midMarketRate: 80 });
+  assert.equal(s.clientPaysUsd, 100);
+  assert.equal(s.paypalFeeUsd, 4);
+  // 96 USD x 80 = 7680 INR at market; minus 3% markup = 7449.6, rounded by netReceived to 7450
+  assert.equal(s.youKeepInr, 7450);
+  assert.equal(s.idealInr, 8000);
+  assert.equal(s.conversionLossInr, 230);
+});
+
+test("invoiceSplit matches netReceived for the freelancer's own rates", () => {
+  const opts = { receivingFeePct: 4.4, conversionMarkupPct: 3.5, withdrawalFee: 0, midMarketRate: 83 };
+  const s = F.invoiceSplit(250, opts);
+  assert.equal(s.youKeepInr, F.netReceived(250, opts).netInr);
+});
+
 test("late cost is simple interest on the INR value", () => {
   // 1000 USD at 83 INR, 12% a year, 30 days: 83000 x 0.12 x 30/365 = 818.9
   assert.equal(F.lateCostInr(1000, 30, { midMarketRate: 83, opportunityRatePct: 12 }), 819);

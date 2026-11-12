@@ -39,21 +39,22 @@ async function verifyWebhook({ headers, rawBody, webhookId, getToken, fetchImpl 
 }
 
 // Applies one verified event to the store. Returns what changed, for logging.
-function applyEvent(event, store) {
+// Webhooks come from PayPal, not from a freelancer, so the lookup is by invoice id across owners.
+async function applyEvent(event, store) {
   const type = event.event_type;
   const invoiceId = event.resource && event.resource.id;
   if (!invoiceId) return { changed: false, reason: "no invoice id" };
-  if (!store.get(invoiceId)) return { changed: false, reason: "unknown invoice" };
+  if (!(await store.findInvoice(invoiceId))) return { changed: false, reason: "unknown invoice" };
 
-  const recorded = store.recordEvent(invoiceId, { id: event.id, type, at: event.create_time || new Date().toISOString() });
+  const recorded = await store.recordEvent(invoiceId, { id: event.id, type, at: event.create_time || new Date().toISOString() });
   if (!recorded) return { changed: false, reason: "duplicate event" };
 
   if (type === "INVOICING.INVOICE.PAID") {
-    store.upsert(invoiceId, { status: "PAID", paidAt: event.create_time || new Date().toISOString() });
+    await store.updateInvoice(invoiceId, { status: "PAID", paidAt: event.create_time || new Date().toISOString() });
     return { changed: true, status: "PAID" };
   }
   if (type === "INVOICING.INVOICE.CANCELLED") {
-    store.upsert(invoiceId, { status: "CANCELLED" });
+    await store.updateInvoice(invoiceId, { status: "CANCELLED" });
     return { changed: true, status: "CANCELLED" };
   }
   return { changed: false, reason: `not handled: ${type}` };

@@ -90,3 +90,15 @@ test("errors name the entry but never contain a key", async () => {
   assert.ok(r.errors.length === 1);
   assert.ok(!r.errors.join(" ").includes("topsecretkey99"));
 });
+
+test("a slow AI provider times out, is cooled down, and the next provider or the rules answer", async () => {
+  const providers = LLM.configuredProviders({ GROQ_API_KEY: "g", GROQ_MODELS: "m1", GEMINI_API_KEY: "e", GEMINI_MODELS: "m2" });
+  const cooldowns = new Map();
+  const slow = async (url) => {
+    if (url.includes("groq.com")) { const e = new Error("timed out"); e.name = "TimeoutError"; throw e; }
+    return new Response(JSON.stringify(gemini(OK)), { status: 200 });
+  };
+  const r = await LLM.generate({ system: "s", user: "u", providers, fetchImpl: slow, cooldowns, now: 0 });
+  assert.equal(r.provider, "gemini", "the next provider answers when the first times out");
+  assert.ok(cooldowns.size >= 1, "the timed-out entry is cooled down");
+});

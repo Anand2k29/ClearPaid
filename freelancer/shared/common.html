@@ -1,0 +1,21 @@
+<!-- Shared by every screen: messages, sign-in, account and the notification toast. -->
+<div id="banner" class="banner hidden" data-i18n="banner.demo"></div>
+
+<div id="tokenBox" class="card hidden signin">
+  <h2>Sign in</h2>
+  <p class="muted">Sign in with your PayPal account, or try the demo. The demo uses PayPal sandbox data and cannot send invoices. ClearPaid never sees your PayPal password.</p>
+  <a class="btn paypal-btn" href="/auth/paypal/start">Continue with PayPal</a>
+  <a class="btn ghost demo-btn" href="/auth/demo">Try the demo</a>
+  <details class="dev-access">
+    <summary>Developer access</summary>
+    <label>Access token<input id="tokenInput" type="password" autocomplete="off" spellcheck="false"></label>
+    <button class="btn ghost" onclick="saveToken()">Unlock with token</button>
+  </details>
+</div>
+
+<div id="accountBar" class="account hidden">
+  <span id="accountName"></span>
+  <a href="/auth/logout">Sign out</a>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>

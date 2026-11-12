@@ -49,7 +49,21 @@
       .sort((a, b) => b.netInr - a.netInr);
   }
 
-  const api = { DEFAULTS, netReceived, lateCostInr, compare };
+  // Who gets what from one invoice: the client pays the full amount, PayPal keeps its receiving fee,
+  // and the rest (after conversion markup and any withdrawal fee) is what the freelancer keeps in INR.
+  function invoiceSplit(amountUsd, opts = {}) {
+    const r = netReceived(amountUsd, opts);
+    return {
+      clientPaysUsd: Math.round(amountUsd * 100) / 100,
+      paypalFeeUsd: Math.round(r.receivingFeeUsd * 100) / 100,
+      conversionLossInr: Math.round(r.conversionLossInr),
+      withdrawalFeeInr: Math.round(r.withdrawalFeeInr),
+      youKeepInr: r.netInr,
+      idealInr: r.idealInr
+    };
+  }
+
+  const api = { DEFAULTS, netReceived, lateCostInr, compare, invoiceSplit };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.FreelancerCalc = api;
 })(typeof self !== "undefined" ? self : this);

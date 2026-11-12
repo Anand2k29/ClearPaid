@@ -1,33 +1,44 @@
 // Small server: serves the static pages and the sandbox invoice API. No dependencies.
 // Run: node server/index.js   then open http://localhost:3000
+const crypto = require("node:crypto");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createPayPalClient } = require("./paypal.js");
 const AI = require("./ai.js");
 const { configuredProviders } = require("./llm.js");
-const { createStore } = require("./store.js");
+const { createJsonStore, DEVELOPER_OWNER } = require("./store.js");
+const { openPostgresStore } = require("./store-postgres.js");
 const { verifyWebhook, applyEvent } = require("./webhooks.js");
 const PROJECT = require("./project.js");
 const R = require("./reminders.js");
+const FEES = require("./fees.js");
 const { checkBearer, setSecurityHeaders, createRateLimiter, publicError } = require("./security.js");
 const PROOF = require("./proof.js");
 const AUTH = require("./auth.js");
+const { buildActivity, paypalFeatures } = require("./activity.js");
 
-// Invoice records keyed by PayPal invoice id, for project summaries.
-function invoicesById(store) {
-  return Object.fromEntries(store.all().map(i => [i.id, i]));
+// The owner's invoice records keyed by PayPal invoice id, for project summaries.
+async function invoicesOf(store, ownerId) {
+  return Object.fromEntries((await store.listInvoices(ownerId)).map(i => [i.id, i]));
 }
 
 const ROOT = path.join(__dirname, "..");
-const BLOCKED = ["server", "tests", "process", "node_modules", "data"];
+const BLOCKED = ["server", "tests", "process", "node_modules", "data", "scripts"];
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
-  ".svg": "image/svg+xml"
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff"
 };
 const MAX_BODY = 64 * 1024;
 
@@ -83,6 +94,21 @@ function sessionUser(req, auth) {
   return auth.store.getSession(AUTH.sessionIdFrom(req));
 }
 
+// Who owns the data this request can touch: the signed-in freelancer, or the developer access token.
+// Demo visitors and PayPal users never share records, and neither can see the developer's records.
+function ownerOf(req, auth) {
+  const user = sessionUser(req, auth);
+  if (!user) return DEVELOPER_OWNER;
+  return user.provider === "demo" ? `demo:${user.id}` : `paypal:${user.id}`;
+}
+
+// Demo sign-in returns to the page it started from, but only to the app's own desktop or phone pages.
+// Anything else (other sites, other paths) goes to the normal entry point, so this cannot be used to redirect people away.
+const DEMO_RETURN = /^\/freelancer\/(desktop|mobile)\/([a-z]+\.html)?$/;
+function demoReturnPath(next) {
+  return next && DEMO_RETURN.test(next) ? next : "/app";
+}
+
 function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiToken = null, proofSecret = null, publicUrl = null, auth = null, aiLimiter = createRateLimiter({ max: 15, windowMs: 60000 }), dailyLimiter = createRateLimiter({ max: 300, windowMs: 86400000 }), limiter = createRateLimiter({ max: 60, windowMs: 60000 }), root = ROOT }) {
   return async function handler(req, res) {
     const url = new URL(req.url, "http://localhost");
@@ -90,6 +116,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
     const isApi = p.startsWith("/api/");
     const isProof = p.startsWith("/proof/");
     setSecurityHeaders(res, { api: isApi || isProof });
+    if (publicUrl && publicUrl.startsWith("https://")) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 
     if (isApi || isProof) {
       const who = req.socket.remoteAddress || "unknown";
@@ -144,8 +171,9 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         return res.end("The demo is not available on this server.");
       }
       const base = auth.publicUrl || `http://${req.headers.host}`;
-      const sid = auth.store.createSession({ id: "demo", email: "demo@clearpaid.example", name: "Demo freelancer", provider: "demo" });
-      res.writeHead(302, { Location: "/app", "Set-Cookie": AUTH.sessionCookie(sid, { secure: base.startsWith("https://") }) });
+      // Each demo visitor gets their own id, so demo data is never shared between visitors.
+      const sid = auth.store.createSession({ id: crypto.randomUUID(), email: "demo@clearpaid.example", name: "Demo freelancer", provider: "demo" });
+      res.writeHead(302, { Location: demoReturnPath(url.searchParams.get("next")), "Set-Cookie": AUTH.sessionCookie(sid, { secure: base.startsWith("https://") }) });
       return res.end();
     }
     if (req.method === "GET" && p === "/auth/logout") {
@@ -156,7 +184,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
     }
     if (isProof && req.method === "GET") {
       const token = p.slice("/proof/".length);
-      const rec = store && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? store.all().find(i => i.proofToken === token) : null;
+      const rec = store && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? await store.findByProofToken(token) : null;
       if (!rec) {
         res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
         return res.end("Proof not found");
@@ -194,7 +222,8 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         if (req.method === "POST" && proofMatch) {
           if (!store) return send(res, 503, { error: "Storage is not configured." });
           if (!proofSecret) return send(res, 503, { error: "Set PROOF_SECRET (at least 32 characters) in .env." });
-          const rec = store.get(proofMatch[1]);
+          const owner = ownerOf(req, auth);
+          const rec = await store.getInvoice(owner, proofMatch[1]);
           if (!rec || !rec.number) return send(res, 404, { error: "Invoice not found." });
           const issuedOn = (rec.sentAt || new Date().toISOString()).slice(0, 10);
           const built = PROOF.buildProof({
@@ -205,7 +234,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
             invoiceId: rec.id
           }, proofSecret);
           const token = PROOF.newProofToken();
-          store.upsert(rec.id, { proofToken: token, proofCode: built.code, proofIssuedOn: issuedOn });
+          await store.saveInvoice(owner, rec.id, { proofToken: token, proofCode: built.code, proofIssuedOn: issuedOn });
           const base = (publicUrl || `http://${req.headers.host || "localhost"}`).replace(/\/$/, "");
           const verifyUrl = `${base}/proof/${token}`;
           const text = `Invoice ${rec.number} for $${Number(rec.amount).toFixed(2)} is ready. Proof of issue: ${verifyUrl}`;
@@ -216,6 +245,9 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
             whatsappUrl: `https://wa.me/?text=${encodeURIComponent(text)}`,
             mailtoUrl: `mailto:${encodeURIComponent(rec.customerEmail || "")}?subject=${encodeURIComponent(`Invoice ${rec.number} proof`)}&body=${encodeURIComponent(text)}`
           });
+        }
+        if (store && req.method === "GET" && p === "/api/activity") {
+          return send(res, 200, { activity: buildActivity(await store.listInvoices(ownerOf(req, auth))) });
         }
         if (req.method === "GET" && p === "/api/me") {
           const user = sessionUser(req, auth);
@@ -228,7 +260,9 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
             paypalConfigured: Boolean(paypal),
             aiProviders: [...new Set((ai.providers || []).map(x => x.name))],
             authRequired: true,
-            environment: "sandbox"
+            paypalFeatures: paypalFeatures({ paypalConfigured: Boolean(paypal), webhookId, loginClientId: auth && auth.clientId }),
+            environment: "sandbox",
+            storage: store ? store.kind : "none"
           });
         }
         if (req.method === "POST" && p === "/api/assistant") {
@@ -258,15 +292,17 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
           const errors = PROJECT.validateProject(body);
           if (errors.length) return send(res, 400, { error: "Invalid project", details: errors });
           const project = PROJECT.buildProject(`proj-${Date.now().toString(36)}`, body);
-          store.putProject(project);
-          return send(res, 201, PROJECT.summarise(project, invoicesById(store)));
+          const owner = ownerOf(req, auth);
+          await store.saveProject(owner, project);
+          return send(res, 201, PROJECT.summarise(project, await invoicesOf(store, owner)));
         }
         const projectMatch = p.match(/^\/api\/projects\/([^/]+)(\/invoices)?$/);
         if (store && projectMatch) {
-          const project = store.getProject(projectMatch[1]);
+          const owner = ownerOf(req, auth);
+          const project = await store.getProject(owner, projectMatch[1]);
           if (!project) return send(res, 404, { error: "Project not found" });
           if (req.method === "GET" && !projectMatch[2]) {
-            return send(res, 200, PROJECT.summarise(project, invoicesById(store)));
+            return send(res, 200, PROJECT.summarise(project, await invoicesOf(store, owner)));
           }
           if (req.method === "POST" && projectMatch[2]) {
             if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
@@ -285,7 +321,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
                   note: `${project.name}: ${c.name}'s share (${c.sharePct}%)`
                 });
                 await paypal.sendInvoice(created.id);
-                store.upsert(created.id, {
+                await store.saveInvoice(owner, created.id, {
                   number, status: "SENT", sentAt: new Date().toISOString(),
                   projectId: project.id, collaboratorId: c.id,
                   customerEmail: project.clientEmail, amount: c.amountUsd, currency: project.currency,
@@ -299,19 +335,52 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
                 results.push({ collaborator: c.id, error: err.message });
               }
             }
-            store.putProject(project);
-            return send(res, 200, { results, project: PROJECT.summarise(project, invoicesById(store)) });
+            await store.saveProject(owner, project);
+            return send(res, 200, { results, project: PROJECT.summarise(project, await invoicesOf(store, owner)) });
           }
         }
         if (store && req.method === "GET" && p === "/api/reminders") {
-          return send(res, 200, { reminders: R.findOverdue(store.all(), new Date()), dailyCap: R.DEFAULT_DAILY_CAP });
+          return send(res, 200, { reminders: R.findOverdue(await store.listInvoices(ownerOf(req, auth)), new Date()), dailyCap: R.DEFAULT_DAILY_CAP });
         }
         const reminderMatch = p.match(/^\/api\/reminders\/([^/]+)\/(approve|snooze)$/);
         if (store && req.method === "POST" && reminderMatch) {
-          if (reminderMatch[2] === "snooze") return send(res, 200, R.snoozeReminder(reminderMatch[1], { store }));
+          if (reminderMatch[2] === "snooze") return send(res, 200, await R.snoozeReminder(reminderMatch[1], { store, ownerId: ownerOf(req, auth) }));
           if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
           if (!paypal) return send(res, 503, { error: "PayPal is not configured. Reminders cannot be sent yet." });
-          return send(res, 200, await R.approveReminder(reminderMatch[1], { store, paypal }));
+          return send(res, 200, await R.approveReminder(reminderMatch[1], { store, paypal, ownerId: ownerOf(req, auth) }));
+        }
+        // Real fees from PayPal for this freelancer's own invoices. Demo accounts see sample notes only.
+        if (store && req.method === "GET" && p === "/api/paypal/fees") {
+          const user = sessionUser(req, auth);
+          if (user && user.provider === "demo") return send(res, 200, { demo: true, summary: null, note: "Demo accounts have no live PayPal data. Sign in with PayPal to see your real fees." });
+          if (!paypal) return send(res, 503, { error: "PayPal is not configured. Fees cannot be read yet." });
+          const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 90);
+          const numbers = (await store.listInvoices(ownerOf(req, auth))).map(inv => inv.number).filter(Boolean);
+          const details = [];
+          for (const window of FEES.dateWindows(days)) {
+            const found = await paypal.listTransactions(window);
+            details.push(...(found.transaction_details || []));
+          }
+          return send(res, 200, { demo: false, days, summary: FEES.summarizeFees(details, { invoiceNumbers: numbers }) });
+        }
+        // One-click pay link for an invoice: a PayPal order the client approves, with no invoice email needed.
+        const payLinkMatch = p.match(/^\/api\/invoices\/([^/]+)\/payment-link$/);
+        if (store && req.method === "POST" && payLinkMatch) {
+          const user = sessionUser(req, auth);
+          if (user && user.provider === "demo") return send(res, 403, { error: "Demo accounts cannot create PayPal payment links. Sign in with PayPal." });
+          if (!paypal) return send(res, 503, { error: "PayPal is not configured. Payment links cannot be created yet." });
+          const inv = await store.getInvoice(ownerOf(req, auth), payLinkMatch[1]);
+          if (!inv) return send(res, 404, { error: "Invoice not found." });
+          const base = publicUrl || `http://${req.headers.host}`;
+          const order = await paypal.createOrder({
+            amount: inv.amount,
+            currency: inv.currency || "USD",
+            customId: inv.number,
+            description: `Invoice ${inv.number}`,
+            returnUrl: `${base}/freelancer/index.html?paid=${encodeURIComponent(inv.number)}`,
+            cancelUrl: `${base}/freelancer/index.html`
+          });
+          return send(res, 201, order);
         }
         if (req.method === "POST" && p === "/api/webhooks/paypal") {
           if (!paypal) return send(res, 503, { error: "PayPal is not configured." });
@@ -320,23 +389,26 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
           const ok = await verifyWebhook({ headers, rawBody: rawBody.toString("utf8"), webhookId, getToken: paypal.getToken, base: paypal.base });
           if (!ok) return send(res, 401, { error: "Webhook signature not verified" });
           const event = JSON.parse(rawBody.toString("utf8"));
-          const result = store ? applyEvent(event, store) : { changed: false, reason: "no store" };
+          const result = store ? await applyEvent(event, store) : { changed: false, reason: "no store" };
           return send(res, 200, { received: true, ...result });
         }
-        if (!paypal) {
+        // Routes that check PayPal themselves, after validating input and the demo rule.
+        const checksPayPalInside = req.method === "POST" && (p === "/api/invoices" || /^\/api\/(invoices\/[^/]+\/send|reminders\/[^/]+\/approve|projects\/[^/]+\/invoices)$/.test(p));
+        if (!paypal && !checksPayPalInside) {
           return send(res, 503, { error: "PayPal is not configured. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET (see .env.example)." });
         }
         if (req.method === "POST" && p === "/api/invoices") {
           const body = await readBody(req);
           const errors = validateInvoice(body);
           if (errors.length) return send(res, 400, { error: "Invalid invoice", details: errors });
+          if (!paypal) return send(res, 503, { error: "PayPal is not configured. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET (see .env.example)." });
           // Idempotency: the same invoice number is never created twice, so a retried request cannot charge twice.
-          if (store && store.all().some(i => i.number === body.invoiceNumber)) {
+          if (store && (await store.findByNumber(body.invoiceNumber))) {
             return send(res, 409, { error: "An invoice with that number already exists." });
           }
           const invoice = await paypal.createInvoice({ ...body, currency: body.currency || "USD" });
           if (store) {
-            store.upsert(invoice.id, {
+            await store.saveInvoice(ownerOf(req, auth), invoice.id, {
               number: body.invoiceNumber,
               status: invoice.status || "DRAFT",
               customerEmail: body.customerEmail,
@@ -344,6 +416,7 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
               amount: Number(body.amount),
               currency: body.currency || "USD",
               links: invoice.links || [],
+              createdAt: new Date().toISOString(),
               dueDate: body.dueDate || R.addDaysIso(R.isoDate(new Date()), 30)
             });
           }
@@ -352,14 +425,19 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         const sendMatch = p.match(/^\/api\/invoices\/([^/]+)\/send$/);
         if (req.method === "POST" && sendMatch) {
           if (sessionUser(req, auth) && sessionUser(req, auth).provider === "demo") return send(res, 403, { error: "Demo accounts cannot send invoices or reminders. Sign in with PayPal to send." });
-          const prior = store && store.get(sendMatch[1]);
+          if (!paypal) return send(res, 503, { error: "PayPal is not configured. Invoices cannot be sent yet." });
+          const owner = ownerOf(req, auth);
+          const prior = store ? await store.getInvoice(owner, sendMatch[1]) : null;
+          if (store && !prior) return send(res, 404, { error: "Invoice not found." });
           if (prior && prior.sentAt) return send(res, 409, { error: "This invoice was already sent." });
           const result = await paypal.sendInvoice(sendMatch[1]);
-          if (store) store.upsert(sendMatch[1], { status: "SENT", sentAt: new Date().toISOString() });
-          return send(res, 200, { ...result, emailedTo: store && store.get(sendMatch[1]) ? store.get(sendMatch[1]).customerEmail : null });
+          if (store) await store.saveInvoice(owner, sendMatch[1], { status: "SENT", sentAt: new Date().toISOString() });
+          return send(res, 200, { ...result, emailedTo: prior ? prior.customerEmail : null });
         }
         const getMatch = p.match(/^\/api\/invoices\/([^/]+)$/);
         if (req.method === "GET" && getMatch) {
+          // Only the owner's invoices can be read, so one freelancer cannot look up another's PayPal invoice.
+          if (store && !(await store.getInvoice(ownerOf(req, auth), getMatch[1]))) return send(res, 404, { error: "Invoice not found." });
           return send(res, 200, await paypal.getInvoice(getMatch[1]));
         }
         return send(res, 404, { error: "Not found" });
@@ -376,15 +454,21 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
       res.writeHead(302, { Location: "/freelancer/index.html" });
       return res.end();
     }
+    // Browsers ask for /favicon.ico by default. Point them at the app icon instead of a 404 on every page.
+    if (p === "/favicon.ico") {
+      res.writeHead(302, { Location: "/freelancer/icons/icon-192.png" });
+      return res.end();
+    }
     const ROUTES = { "/": "/landing/index.html" };
-    const rel = ROUTES[p] || p;
+    // A folder address (for example /freelancer/desktop/) serves that folder's index.html.
+    const rel = ROUTES[p] || (p.endsWith("/") ? p + "index.html" : p);
     const parts = rel.split("/").filter(Boolean);
     if (parts.some(part => BLOCKED.includes(part) || part.startsWith("."))) {
       res.writeHead(404);
       return res.end("Not found");
     }
     const file = path.normalize(path.join(root, rel));
-    if (!file.startsWith(path.normalize(root))) {
+    if (file !== path.normalize(root) && !file.startsWith(path.normalize(root) + path.sep)) {
       res.writeHead(403);
       return res.end("Forbidden");
     }
@@ -394,30 +478,37 @@ function createHandler({ paypal, ai = {}, store = null, webhookId = null, apiTok
         return res.end("Not found");
       }
       const ext = path.extname(file);
-      // Pages stay fresh, while images, styles and scripts are cached for a day to speed up repeat visits.
-      const cache = ext === ".html" ? "no-cache" : "public, max-age=86400";
+      // Pages, styles and scripts are revalidated on every visit, so a new release shows at once (unchanged files cost a quick 304).
+      // Images and other media are cached for a day to speed up repeat visits.
+      const cache = [".html", ".js", ".css", ".webmanifest"].includes(ext) ? "no-cache" : "public, max-age=86400";
       res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream", "Cache-Control": cache });
       res.end(data);
     });
   };
 }
 
-function start({ port = Number(process.env.PORT) || 3000, env = process.env } = {}) {
+async function start({ port = Number(process.env.PORT) || 3000, env = process.env } = {}) {
   let paypal = null;
   if (env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET) {
     paypal = createPayPalClient({ clientId: env.PAYPAL_CLIENT_ID, clientSecret: env.PAYPAL_CLIENT_SECRET });
   }
   const ai = { providers: configuredProviders(env), cooldowns: new Map() };
-  const store = createStore(env.DATA_FILE || path.join(ROOT, "data", "store.json"));
+  // DATABASE_URL selects the hosted Postgres store. Without it, a JSON file is used (local development).
+  const store = env.DATABASE_URL ? await openPostgresStore(env.DATABASE_URL) : createJsonStore(env.DATA_FILE || path.join(ROOT, "data", "store.json"));
   const apiToken = env.API_TOKEN || null;
   const auth = { store: AUTH.createAuthStore(), clientId: env.PAYPAL_CLIENT_ID || null, clientSecret: env.PAYPAL_CLIENT_SECRET || null, publicUrl: env.PUBLIC_URL || null, demoEnabled: env.DEMO_ENABLED !== "false" };
-  const server = http.createServer(createHandler({ paypal, ai, store, webhookId: env.PAYPAL_WEBHOOK_ID || null, apiToken, proofSecret: env.PROOF_SECRET || null, publicUrl: env.PUBLIC_URL || null, auth }));
+  // API requests per minute for each address. The default (240) leaves room for several people on one Wi-Fi network.
+  const apiPerMinute = Number(env.API_RATE_PER_MINUTE) || 240;
+  const limiter = createRateLimiter({ max: apiPerMinute, windowMs: 60000 });
+  const server = http.createServer(createHandler({ paypal, ai, store, webhookId: env.PAYPAL_WEBHOOK_ID || null, apiToken, proofSecret: env.PROOF_SECRET || null, publicUrl: env.PUBLIC_URL || null, auth, limiter }));
   // Listen on localhost only by default. Set HOST to expose the server, and only behind HTTPS.
   const host = env.HOST || "127.0.0.1";
   return new Promise(resolve => server.listen(port, host, () => resolve(server)));
 }
 
 if (require.main === module) {
+  // Read .env first, so `npm start` works without `node --env-file`. Real environment variables still win.
+  require("./env.js").loadEnvFile();
   start().then(server => {
     const { port } = server.address();
     console.log(`ClearPaid running at http://localhost:${port}`);

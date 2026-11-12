@@ -1,6 +1,6 @@
 // Security controls for the server. Each one uses a standard, well-understood mechanism:
 //   - Bearer token over TLS (RFC 6750), compared in constant time (crypto.timingSafeEqual).
-//   - Content-Security-Policy, nosniff, frame denial and a restrictive Permissions-Policy (OWASP Secure Headers).
+//   - Content-Security-Policy, nosniff, same-site framing only and a restrictive Permissions-Policy (OWASP Secure Headers).
 //   - Fixed-window rate limiting per client address, with 429 and Retry-After (RFC 6585).
 //   - Error responses that never expose internal details or provider error bodies.
 // Money never moves through this server. PayPal holds the card and bank data, so this app has no PCI card scope.
@@ -37,13 +37,14 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
-  "frame-ancestors 'none'"
+  // Only this site may frame its pages (the landing page previews the app). Other sites are blocked.
+  "frame-ancestors 'self'"
 ].join("; ");
 
 function setSecurityHeaders(res, { api = false } = {}) {
   res.setHeader("Content-Security-Policy", CSP);
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), payment=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
@@ -58,6 +59,10 @@ function createRateLimiter({ max = 60, windowMs = 60000, now = () => Date.now() 
     // Returns { allowed, retryAfterSec }.
     hit(key) {
       const t = now();
+      // Keep memory bounded: drop expired windows once there are many clients.
+      if (windows.size > 10000) {
+        for (const [k, w] of windows) if (t - w.start >= windowMs) windows.delete(k);
+      }
       const w = windows.get(key);
       if (!w || t - w.start >= windowMs) {
         windows.set(key, { start: t, count: 1 });

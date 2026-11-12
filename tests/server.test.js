@@ -105,7 +105,12 @@ async function withServer(paypal, fn) {
 test("health reports PayPal and AI configuration", async () => {
   await withServer(null, async base => {
     const r = await fetch(`${base}/api/health`).then(r => r.json());
-    assert.deepEqual(r, { ok: true, paypalConfigured: false, aiProviders: [], authRequired: true, environment: "sandbox" });
+    assert.equal(r.ok, true);
+    assert.equal(r.paypalConfigured, false);
+    assert.deepEqual(r.aiProviders, []);
+    assert.equal(r.authRequired, true);
+    assert.equal(r.environment, "sandbox");
+    assert.equal(r.paypalFeatures.find(x => x.name === "Webhooks").on, false);
   });
 });
 
@@ -134,7 +139,7 @@ test("AI draft rejects an unknown label", async () => {
 
 test("creating an invoice without PayPal configured returns 503", async () => {
   await withServer(null, async base => {
-    const res = await fetch(`${base}/api/invoices`, { method: "POST", headers: { "Content-Type": "application/json", ...AUTH }, body: "{}" });
+    const res = await fetch(`${base}/api/invoices`, { method: "POST", headers: { "Content-Type": "application/json", ...AUTH }, body: JSON.stringify({ invoiceNumber: "FP-OK-1", customerEmail: "client@example.com", customerName: "Client", amount: 100, currency: "USD" }) });
     assert.equal(res.status, 503);
   });
 });
@@ -216,7 +221,7 @@ test("responses carry security headers, and API responses are not cached", async
   await withServer(null, async base => {
     const page = await fetch(`${base}/freelancer/index.html`);
     assert.equal(page.headers.get("x-content-type-options"), "nosniff");
-    assert.equal(page.headers.get("x-frame-options"), "DENY");
+    assert.equal(page.headers.get("x-frame-options"), "SAMEORIGIN");
     assert.match(page.headers.get("content-security-policy"), /default-src 'self'/);
     const api = await fetch(`${base}/api/health`);
     assert.equal(api.headers.get("cache-control"), "no-store");
@@ -251,10 +256,10 @@ test("a proof is created with the access token, and its public page verifies the
   const os = require("node:os");
   const path = require("node:path");
   const fs = require("node:fs");
-  const { createStore } = require("../server/store.js");
+  const { createJsonStore } = require("../server/store.js");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-proof-"));
-  const store = createStore(path.join(dir, "store.json"));
-  store.upsert("INV2-P1", { number: "FP-2026-009", status: "SENT", amount: 500, currency: "USD", customerEmail: "c@example.com", sentAt: "2026-11-01T09:00:00Z" });
+  const store = createJsonStore(path.join(dir, "store.json"));
+  await store.saveInvoice("developer", "INV2-P1", { number: "FP-2026-009", status: "SENT", amount: 500, currency: "USD", customerEmail: "c@example.com", sentAt: "2026-11-01T09:00:00Z" });
   const server = await start({ port: 0, env: {} });
   server.removeAllListeners("request");
   server.on("request", createHandler({ paypal: null, apiToken: TOKEN, store, proofSecret: "p".repeat(40), publicUrl: "https://clearpaid.example", limiter: createRateLimiter({ max: 1000, windowMs: 60000 }) }));
@@ -437,4 +442,15 @@ test("the demo can be switched off on the server", async () => {
   } finally {
     server.close();
   }
+});
+
+test("if PayPal is unreachable, the user gets a generic message and no internal detail", async () => {
+  const paypal = { createInvoice: async () => { throw Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:443 secret-internal"), { status: 502 }); } };
+  await withServer(paypal, async base => {
+    const r = await fetch(`${base}/api/invoices`, { method: "POST", headers: { "Content-Type": "application/json", ...AUTH }, body: JSON.stringify({ invoiceNumber: "FP-DOWN-1", customerEmail: "client@example.com", customerName: "Client", amount: 100, currency: "USD" }) });
+    assert.equal(r.status, 502);
+    const body = await r.text();
+    assert.doesNotMatch(body, /ECONNREFUSED|10\.0\.0\.5|secret-internal/);
+    assert.match(body, /could not be completed/);
+  });
 });

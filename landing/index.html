@@ -5,189 +5,284 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ClearPaid · Get paid by clients abroad, keep more of it</title>
   <meta name="description" content="ClearPaid helps freelancers and small teams invoice clients abroad through PayPal, approve every AI reply, and see what reaches their bank in rupees.">
+  <meta name="theme-color" content="#0e4a40">
+  <link rel="icon" type="image/png" sizes="192x192" href="/freelancer/icons/icon-192.png">
+  <link rel="stylesheet" href="/freelancer/shared/app.css">
   <style>
-    :root {
-      --ink:#1e1b3a; --muted:#5b5f78; --line:#e4e6f2; --bg:#ffffff; --soft:#f5f5ff;
-      --brand:#4f46e5; --brand-dark:#3730a3; --accent:#0d9488; --ai:#c026d3; --ai-soft:#fae8ff;
-      --ok:#047857; --ok-bg:#d1fae5; --bad:#be123c; --bad-bg:#ffe4e6; --amber:#f59e0b;
-      --hero-a:#eef2ff; --shadow:0 30px 60px -20px rgba(30,27,58,.28);
-    }
-    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink:#e9edf5; --muted:#a3acbd; --line:#2a3140; --bg:#0f1319; --soft:#171c25; --brand:#818cf8; --brand-dark:#6366f1; --accent:#2dd4bf; --ai:#f0abfc; --ai-soft:#3b1f47; --hero-a:#1e1b4b; --ok:#6ee7b7; --ok-bg:#053b2c; --bad:#fda4af; --bad-bg:#3f0d1b; --shadow:0 30px 60px -20px rgba(0,0,0,.6); } }
-    :root[data-theme="dark"] { --ink:#e9edf5; --muted:#a3acbd; --line:#2a3140; --bg:#0f1319; --soft:#171c25; --brand:#818cf8; --brand-dark:#6366f1; --accent:#2dd4bf; --ai:#f0abfc; --ai-soft:#3b1f47; --hero-a:#1e1b4b; --ok:#6ee7b7; --ok-bg:#053b2c; --bad:#fda4af; --bad-bg:#3f0d1b; --shadow:0 30px 60px -20px rgba(0,0,0,.6); }
+    /* Landing page: the same ledger look as the app. Tokens, fonts and buttons come from app.css. */
+    body { font-size: 16px; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+    a { color: var(--pine); }
+    /* The height is set by the frame, not by the image's own height attribute. */
+    img { display: block; max-width: 100%; height: auto; }
+    p { margin: 0; }
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: clamp(40px, 4.9vw, 62px); line-height: 1.04; letter-spacing: -.035em; margin: 18px 0 22px; }
+    h2 { font-size: clamp(34px, 3.8vw, 50px); line-height: 1.06; letter-spacing: -.03em; margin: 14px 0 16px; }
+    h3 { font-size: 21px; line-height: 1.2; margin: 0 0 8px; }
+    section { padding: 116px 0; position: relative; }
+    .centre { text-align: center; }
+    .lead { font-size: 19px; color: var(--muted); max-width: 52ch; line-height: 1.55; margin-top: 4px; }
+    .sub { color: var(--muted); font-size: 18px; max-width: 62ch; margin: 16px auto 0; line-height: 1.55; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 10px; }
+    .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--marigold); border-radius: 2px; }
+    .band-soft { background: var(--paper-2); }
+    .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .cta .btn { width: auto; min-width: 0; padding: 15px 28px; font-size: 16px; box-shadow: 0 16px 30px -18px var(--pine); }
+    .cta .btn.ghost { box-shadow: none; }
+    .btn.gold { background: var(--marigold); border-color: var(--marigold); color: #1f1500; box-shadow: none; }
+    .btn.gold:hover { background: #f0b451; border-color: #f0b451; }
 
-    * { box-sizing:border-box; }
-    html { scroll-behavior:smooth; }
-    body { margin:0; font-family:"Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); background:var(--bg); line-height:1.6; -webkit-font-smoothing:antialiased; }
-    img { max-width:100%; display:block; }
-    a { color:var(--brand); }
-    p { margin:0; }
-    h1,h2,h3 { margin:0; }
-    .wrap { max-width:1160px; margin:0 auto; padding:0 24px; }
-    .muted { color:var(--muted); }
-    .eyebrow { display:inline-block; color:var(--ai); font-weight:700; font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:14px; }
-    h1 { font-size:56px; line-height:1.06; letter-spacing:-.025em; margin-bottom:20px; }
-    h2 { font-size:40px; line-height:1.12; letter-spacing:-.02em; margin-bottom:14px; }
-    h3 { font-size:19px; margin-bottom:8px; }
-    .lead { font-size:19px; color:var(--muted); max-width:560px; }
-    section { padding:100px 0; position:relative; }
-    .soft { background:var(--soft); }
-    .centre { text-align:center; }
-    .sub { color:var(--muted); font-size:18px; max-width:660px; margin:0 auto 52px; }
-
-    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:15px 26px; border-radius:12px; background:var(--brand); color:#fff; text-decoration:none; font-weight:600; font-size:16px; border:1px solid var(--brand); box-shadow:0 10px 24px -8px rgba(79,70,229,.6); transition:transform .2s, box-shadow .2s, background .2s; }
-    .btn:hover { background:var(--brand-dark); transform:translateY(-2px); box-shadow:0 16px 30px -10px rgba(79,70,229,.7); }
-    .btn.ghost { background:transparent; color:var(--brand); box-shadow:none; }
-    .btn.ghost:hover { background:var(--hero-a); }
-    .btn.white { background:#fff; color:var(--ink); border-color:#fff; box-shadow:none; }
-    .cta { display:flex; gap:14px; flex-wrap:wrap; }
+    /* Shared card */
+    .lp-card { background: var(--card); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); }
 
     /* Navigation */
-    .nav { position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
-    .nav .wrap { display:flex; align-items:center; justify-content:space-between; height:70px; gap:18px; }
-    .logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:20px; color:var(--ink); text-decoration:none; white-space:nowrap; }
-    .logo-img { height:42px; width:auto; display:block; }
-    .word { font-weight:800; font-size:21px; letter-spacing:-.02em; background:linear-gradient(90deg,var(--ink) 0%,var(--brand) 55%,var(--accent) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
-    .mark { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--brand),var(--accent)); box-shadow:inset 0 -3px 0 rgba(0,0,0,.15); }
-    .nav .links { display:flex; align-items:center; gap:26px; }
-    .nav .links a:not(.btn) { color:var(--muted); text-decoration:none; font-size:15px; font-weight:500; }
-    .nav .links a:not(.btn):hover { color:var(--ink); }
-    .nav .btn { padding:11px 20px; font-size:15px; box-shadow:none; color:#fff; }
+    .nav { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--paper) 88%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 74px; }
+    .logo { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; color: var(--ink); }
+    .logo svg { width: 34px; height: 34px; flex: 0 0 34px; }
+    .logo strong { font: 600 25px/1 var(--serif); letter-spacing: -.02em; }
+    .nav .links { display: flex; align-items: center; gap: 28px; }
+    .nav .links a:not(.btn) { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px; }
+    .nav .links a:not(.btn):hover { color: var(--ink); }
+    .nav .btn { width: auto; min-width: 0; padding: 11px 22px; font-size: 15px; box-shadow: none; }
 
-    /* Hero with 3D stage */
-    .hero { background:radial-gradient(900px 500px at 85% 10%, #e0e7ff 0%, transparent 60%), linear-gradient(180deg, var(--hero-a), var(--bg) 75%); padding:40px 0 96px; overflow:hidden; }
-    .hero .wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; }
-    .trust { display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:34px; font-size:14px; color:var(--muted); }
-    .trust span::before { content:"✓"; color:var(--ok); font-weight:800; margin-right:6px; }
+    /* Hero */
+    .hero { padding: 68px 0 120px; overflow: hidden; background: radial-gradient(900px 520px at 90% -4%, color-mix(in srgb, var(--marigold) 20%, transparent), transparent 62%), radial-gradient(760px 480px at -8% 24%, color-mix(in srgb, var(--pine) 12%, transparent), transparent 60%); }
+    .hero .wrap { display: grid; grid-template-columns: 1.02fr .98fr; gap: 76px; align-items: center; }
+    .trust { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 36px; font-size: 14.5px; color: var(--ink-2); }
+    .trust span::before { content: "✓"; color: var(--pine); font-weight: 800; margin-right: 8px; }
+    .hero-art { position: relative; }
+    .hero-art img { width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; object-position: 40% center; border-radius: 30px; filter: saturate(.92) sepia(.06); box-shadow: 0 40px 70px -40px rgba(22, 27, 26, .45); }
+    /* The sample figures sit below the photo, never on top of it. */
+    .ledger-float { position: relative; width: 100%; margin-top: 18px; padding: 22px 24px 20px; }
+    .ledger-float .eyebrow { font-size: 10.5px; }
+    .ledger-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line-2); font-size: 14.5px; }
+    .ledger-row:last-of-type { border-bottom: 0; }
+    .ledger-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line-2); }
+    .ledger-total strong { font: 560 30px/1 var(--serif); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .ledger-total span { font-size: 13px; color: var(--muted); }
 
-    .pill-ok { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--ok-bg); color:var(--ok); }
-    .pill-ai { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--ai-soft); color:var(--ai); }
+    /* Key figures: a ledger strip */
+    .stats { padding: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--card); }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+    .stats-grid > div { padding: 36px 28px; border-left: 1px solid var(--line); }
+    .stats-grid > div:first-child { border-left: 0; padding-left: 0; }
+    .stat-n { font: 560 48px/1 var(--serif); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .stat-l { color: var(--muted); font-size: 14px; margin-top: 12px; line-height: 1.5; }
 
-    .hero-img img { width:100%; height:auto; aspect-ratio:4/3; object-fit:cover; border-radius:24px; box-shadow:var(--shadow); display:block; }
-    /* Logo-free trust strip */
-    .strip { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:26px 0; }
-    .strip .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:18px; font-size:15px; color:var(--muted); }
-    .strip b { color:var(--ink); }
+    /* Developers: a dark band with the code */
+    .dev { background: var(--side); color: var(--side-ink); }
+    .dev h2 { color: var(--side-ink); }
+    .dev .eyebrow { color: var(--marigold); }
+    .dev .eyebrow::before { background: var(--marigold); }
+    .dev-sub { color: color-mix(in srgb, var(--side-ink) 74%, transparent); font-size: 17px; margin: 16px 0 24px; max-width: 52ch; line-height: 1.55; }
+    .dev-list { margin: 0; padding: 0; list-style: none; }
+    .dev-list li { position: relative; padding: 12px 0 12px 28px; border-top: 1px solid color-mix(in srgb, var(--side-ink) 14%, transparent); color: color-mix(in srgb, var(--side-ink) 82%, transparent); font-size: 15px; }
+    .dev-list li::before { content: ""; position: absolute; left: 0; top: 19px; width: 9px; height: 9px; border-radius: 50%; background: var(--marigold); }
+    .dev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+    .code { margin: 0; background: color-mix(in srgb, var(--side-ink) 6%, var(--side)); border: 1px solid color-mix(in srgb, var(--side-ink) 14%, transparent); border-radius: 24px; padding: 28px; overflow-x: auto; font: 500 14px/1.75 ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace; color: var(--side-ink); }
+    .code .c { color: color-mix(in srgb, var(--side-ink) 52%, transparent); }
 
-    /* 3D cards */
-    .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; }
-    .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
-    .card { position:relative; background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:28px;  transition:transform .35s ease, box-shadow .35s ease; box-shadow:0 1px 0 var(--line), 0 12px 30px -18px rgba(30,27,58,.25); }
-    .card:hover { transform:translateY(-4px); box-shadow:0 30px 50px -20px rgba(30,27,58,.35); }
-    .card p { color:var(--muted); font-size:15px; }
-    .step-no { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,var(--brand),var(--accent)); color:#fff; font-weight:800; margin-bottom:18px; box-shadow:0 10px 20px -8px rgba(79,70,229,.6); transform:translateZ(20px); }
-    .ico svg { width:24px; height:24px; fill:none; stroke:var(--brand); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-    .ico { width:48px; height:48px; border-radius:14px; background:var(--hero-a); color:var(--brand); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; margin-bottom:18px; }
+    /* How it works: four numbered columns on a ruled line */
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 62px; border-top: 1.5px solid var(--ink); }
+    .step { padding: 28px 28px 0 0; }
+    .step + .step { padding-left: 28px; border-left: 1px solid var(--line); }
+    .step-no { display: block; font: italic 500 52px/1 var(--serif); color: var(--marigold-ink); margin-bottom: 20px; letter-spacing: -.02em; }
+    .step p { color: var(--muted); font-size: 15px; line-height: 1.6; }
 
-    .way { display:flex; flex-direction:column; padding:0; overflow:hidden; }
-    .way .pic { height:200px; background:var(--soft); }
-    .way .pic img { width:100%; height:100%; object-fit:cover; }
-    .way .body { padding:26px; display:flex; flex-direction:column; flex:1; }
-    .way .body p { flex:1; margin-bottom:18px; }
-    .way a.more { font-weight:600; text-decoration:none; }
+    /* Use cases */
+    .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 62px; }
+    .way { display: flex; flex-direction: column; overflow: hidden; }
+    .way .pic { aspect-ratio: 4 / 3; background: var(--paper-2); overflow: hidden; }
+    .way .pic img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.92) sepia(.05); transition: transform .6s ease; }
+    .way:hover .pic img { transform: scale(1.04); }
+    .way .body { padding: 26px; display: flex; flex-direction: column; flex: 1; }
+    .way .body p { color: var(--muted); font-size: 15px; line-height: 1.6; flex: 1; margin-bottom: 20px; }
+    .way a.more { color: var(--pine); font-weight: 700; text-decoration: none; }
+    .way a.more:hover { text-decoration: underline; text-underline-offset: 3px; }
 
     /* Feature rows */
-    .feature { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
-    .feature + .feature { margin-top:120px; }
-    .feature.flip > :first-child { order:2; }
-    .feature ul { list-style:none; padding:0; margin:22px 0 0; color:var(--muted); }
-    .feature li { position:relative; padding:8px 0 8px 30px; }
-    .feature li::before { content:""; position:absolute; left:0; top:15px; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg,var(--brand),var(--accent)); }
-    .tilt3d { }
-    .tilt3d > div { transform: ; transition:transform .5s ease;  background:var(--bg); border:1px solid var(--line); border-radius:24px; padding:26px; box-shadow:var(--shadow); }
-    .tilt3d:hover > div { transform: ; }
-    .feature.flip .tilt3d > div { transform: ; }
-    .feature.flip .tilt3d:hover > div { transform: ; }
-    .row { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid var(--line); font-size:15px; }
-    .row:last-child { border-bottom:0; }
-    .qr { width:168px; height:168px; margin:8px auto 14px; padding:10px; border-radius:14px; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
-    .qr svg { width:148px; height:148px; display:block; }
-    .meter { height:12px; border-radius:999px; overflow:hidden; display:flex; margin:16px 0 8px; }
-    .bubble { background:var(--soft); border-radius:16px; padding:14px 16px; font-size:15px; margin-bottom:12px; }
-    .bubble.me { background:var(--brand); color:#fff; margin-left:40px; }
+    .feature { display: grid; grid-template-columns: 1fr 1fr; gap: 88px; align-items: center; }
+    .feature + .feature { margin-top: 130px; }
+    .feature.flip > :first-child { order: 2; }
+    .feature .muted { color: var(--muted); font-size: 17px; line-height: 1.6; margin-top: 14px; max-width: 52ch; }
+    .feature ul { list-style: none; margin: 24px 0 0; padding: 0; }
+    .feature li { position: relative; padding: 9px 0 9px 30px; color: var(--ink-2); font-size: 15.5px; line-height: 1.55; }
+    .feature li::before { content: "✓"; position: absolute; left: 0; top: 9px; color: var(--pine); font-weight: 800; }
+    .panel-card { padding: 28px; }
+    .ledger-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 1px dashed var(--line-2); font-size: 15px; }
+    .ledger-line:last-child { border-bottom: 0; }
+    .qr { width: 176px; height: 176px; margin: 16px auto 18px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+    .qr svg { width: 150px; height: 150px; display: block; }
+    .meter { margin: 18px 0 10px; }
+    .bubble { background: var(--paper); border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; padding: 14px 16px; font-size: 15px; line-height: 1.5; margin-bottom: 12px; max-width: 88%; }
+    .bubble.me { background: var(--pine); border-color: var(--pine); color: var(--on-pine); margin-left: auto; border-radius: 18px 18px 6px 18px; }
 
-    /* Security */
-    .sec-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; column-gap:64px; counter-reset:item; }
-    .sec-list li { position:relative; padding:28px 0 28px 64px; border-top:1px solid var(--line); counter-increment:item; }
-    .sec-list li::before { content:counter(item, decimal-leading-zero); position:absolute; left:0; top:30px; font-size:13px; font-weight:700; letter-spacing:.06em; color:var(--brand); }
-    .sec-list li::after { content:""; position:absolute; left:0; top:-1px; width:40px; height:2px; background:var(--brand); }
-    .sec-list h3 { font-size:18px; margin-bottom:6px; }
-    .sec-list p { font-size:15px; line-height:1.6; }
-    .sec { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
-    .sec .card { padding:24px; }
-    .sec h3 { font-size:17px; }
-    .sec p { font-size:14px; }
-    .honest { border:1px dashed var(--brand); border-radius:18px; padding:28px; background:var(--bg); margin-top:30px; }
+    /* Security: numbered on a ruled grid */
+    .sec-list { list-style: none; margin: 62px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 76px; counter-reset: item; }
+    .sec-list li { position: relative; padding: 28px 0 30px 72px; border-top: 1px solid var(--line-2); counter-increment: item; }
+    .sec-list li::before { content: counter(item, decimal-leading-zero); position: absolute; left: 0; top: 26px; font: italic 500 24px/1 var(--serif); color: var(--marigold-ink); }
+    .sec-list h3 { font-size: 19px; }
+    .sec-list p { font-size: 15px; line-height: 1.6; }
+    .honest { border: 1.5px dashed var(--marigold); border-radius: 24px; padding: 30px 32px; background: var(--card); margin-top: 44px; }
+    .honest p { color: var(--muted); font-size: 15.5px; line-height: 1.6; margin-top: 8px; }
+    .honest a { font-weight: 700; }
 
     /* Pricing */
-    .plans { display:grid; grid-template-columns:1fr 1fr; gap:26px; max-width:900px; margin:0 auto; }
-    .plan { padding:36px; }
-    .plan.featured { border:2px solid var(--brand); transform:translateY(-10px); }
-    .plan .price { font-size:40px; font-weight:800; margin:10px 0 6px; letter-spacing:-.02em; }
-    .plan ul { margin:18px 0 0; padding-left:20px; color:var(--muted); font-size:15px; }
-    .plan li { margin-bottom:8px; }
+    .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; max-width: 920px; margin: 62px auto 0; }
+    .plan { padding: 38px; }
+    .plan .muted { color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .plan .price { font: 560 48px/1 var(--serif); letter-spacing: -.03em; margin: 18px 0 12px; }
+    .plan ul { list-style: none; margin: 24px 0 0; padding: 0; }
+    .plan li { position: relative; padding: 11px 0 11px 28px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 15px; }
+    .plan li::before { content: "✓"; position: absolute; left: 0; top: 11px; color: var(--pine); font-weight: 800; }
+    .plan.featured { background: var(--pine); border-color: var(--pine); color: var(--on-pine); box-shadow: 0 34px 60px -36px var(--pine); transform: translateY(-12px); }
+    .plan.featured h3, .plan.featured .price { color: var(--on-pine); }
+    .plan.featured .muted { color: color-mix(in srgb, var(--on-pine) 78%, transparent); }
+    .plan.featured li { color: var(--on-pine); border-color: color-mix(in srgb, var(--on-pine) 18%, transparent); }
+    .plan.featured li::before { color: var(--marigold); }
 
-    details { border-bottom:1px solid var(--line); padding:20px 0; }
-    summary { font-weight:600; font-size:17px; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
-    summary::after { content:"+"; color:var(--brand); font-size:22px; line-height:1; }
-    details[open] summary::after { content:"−"; }
-    details p { color:var(--muted); margin-top:12px; max-width:760px; }
-    .faq { max-width:820px; margin:0 auto; }
+    /* PayPal: the four API steps on a pine band */
+    .paypal-sec { background: var(--pine); color: var(--on-pine); }
+    .paypal-sec h2 { color: var(--on-pine); }
+    .paypal-sec .eyebrow { color: var(--marigold); }
+    .paypal-sec .eyebrow::before { background: var(--marigold); }
+    .paypal-sec .sub { color: color-mix(in srgb, var(--on-pine) 80%, transparent); }
+    .flow { list-style: none; margin: 62px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .flow-step { background: color-mix(in srgb, var(--on-pine) 7%, transparent); border: 1px solid color-mix(in srgb, var(--on-pine) 16%, transparent); border-radius: 24px; padding: 28px 24px; }
+    .flow-n { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%; background: var(--marigold); color: #1f1500; font: 600 19px/1 var(--serif); margin-bottom: 18px; }
+    .flow-step h3 { color: var(--on-pine); font-size: 18px; }
+    .flow-step p { color: color-mix(in srgb, var(--on-pine) 78%, transparent); font-size: 14.5px; line-height: 1.55; margin-bottom: 14px; }
+    .flow-step code { display: block; font: 500 12px/1.5 ui-monospace, Consolas, monospace; background: color-mix(in srgb, var(--on-pine) 9%, transparent); border-radius: 10px; padding: 8px 10px; margin-top: 8px; overflow-wrap: anywhere; color: var(--on-pine); }
+    .paypal-note { margin-top: 34px; text-align: center; color: color-mix(in srgb, var(--on-pine) 74%, transparent); font-size: 14.5px; line-height: 1.6; }
 
-    /* Closing */
-    .closing { background:linear-gradient(135deg,#312e81 0%,#4f46e5 45%,#0f766e 100%); color:#fff; padding:96px 0; text-align:center; position:relative; overflow:hidden; }
-    .closing h2 { color:#fff; }
-    .closing p { color:#dfe3ff; font-size:18px; max-width:580px; margin:0 auto 30px; }
+    /* FAQ */
+    .faq { max-width: 860px; margin: 56px auto 0; }
+    details { border-top: 1px solid var(--line-2); padding: 22px 0; }
+    details:last-child { border-bottom: 1px solid var(--line-2); }
+    summary { font: 600 20px/1.3 var(--serif); letter-spacing: -.01em; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--pine); font: 400 30px/1 var(--sans); }
+    details[open] summary::after { content: "–"; }
+    details p { color: var(--muted); margin-top: 14px; max-width: 70ch; font-size: 15.5px; line-height: 1.6; }
 
-    footer { padding:44px 0 36px; font-size:14px; color:var(--muted); border-top:1px solid var(--line); }
-    footer .wrap { display:grid; grid-template-columns:2fr 1fr 1fr; gap:30px; }
-    footer a { color:var(--muted); text-decoration:none; display:block; margin-bottom:8px; }
-    footer a:hover { color:var(--ink); }
-    footer h4 { margin:0 0 12px; font-size:14px; color:var(--ink); }
+    /* Closing band */
+    .closing { background: radial-gradient(700px 380px at 88% 0%, color-mix(in srgb, var(--marigold) 30%, transparent), transparent 62%), var(--pine); color: var(--on-pine); padding: 120px 0; text-align: center; }
+    .closing h2 { color: var(--on-pine); }
+    .closing p { color: color-mix(in srgb, var(--on-pine) 82%, transparent); font-size: 18px; max-width: 56ch; margin: 16px auto 34px; line-height: 1.55; }
 
-    .stats { border-bottom:1px solid var(--line); padding:44px 0; }
-    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:28px; }
-    .stat-n { font-size:40px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
-    .stat-l { color:var(--muted); font-size:14px; margin-top:6px; }
-    .dev { background:#0f0d24; color:#e5e7f5; padding:96px 0; }
-    .dev h2 { color:#fff; }
-    .dev-eye { color:#a5b4fc; }
-    .dev-sub { color:#b9bdd6; font-size:17px; margin:14px 0 22px; max-width:520px; }
-    .dev-list { margin:0; padding-left:20px; color:#b9bdd6; }
-    .dev-list li { margin-bottom:8px; }
-    .dev-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
-    .code { margin:0; background:#1a1736; border:1px solid #2f2a5a; border-radius:16px; padding:24px; overflow-x:auto; font-family:Consolas, "Courier New", monospace; font-size:14px; line-height:1.7; color:#e5e7f5; }
-    .code .c { color:#8b8fb8; }
-    /* Motion preference */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
-    }
+    /* Footer */
+    footer { background: var(--side); color: color-mix(in srgb, var(--side-ink) 70%, transparent); padding: 68px 0 40px; font-size: 14.5px; }
+    footer .logo { color: var(--side-ink); }
+    footer .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; }
+    footer .foot-grid p { margin-top: 16px; max-width: 360px; line-height: 1.6; }
+    footer h4 { color: var(--side-ink); font: 700 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; margin: 0 0 16px; }
+    footer a { display: block; color: color-mix(in srgb, var(--side-ink) 74%, transparent); text-decoration: none; margin-bottom: 10px; }
+    footer a:hover { color: var(--marigold); }
+    .foot-legal { margin-top: 48px; padding-top: 22px; border-top: 1px solid color-mix(in srgb, var(--side-ink) 14%, transparent); font-size: 13px; line-height: 1.6; }
+
+    /* Working demo: the real desktop site and phone app, in frames, switched by tabs */
+    .demo-sec { background: var(--paper); padding-top: 96px; }
+    .demo-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; width: fit-content; max-width: 100%; margin: 40px auto 0; padding: 6px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .tab-btn { border: 0; background: transparent; color: var(--muted); font: 600 15px/1 var(--sans); padding: 13px 22px; border-radius: 999px; cursor: pointer; transition: background .15s ease, color .15s ease; }
+    .tab-btn:hover { color: var(--ink); }
+    .tab-btn[aria-selected="true"] { background: var(--pine); color: var(--on-pine); box-shadow: 0 10px 20px -12px var(--pine); }
+    .demo-panel { margin-top: 36px; }
+    .browser-frame { background: var(--card); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; box-shadow: var(--shadow); }
+    .browser-bar { display: flex; align-items: center; gap: 7px; padding: 13px 18px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+    .browser-bar span { width: 11px; height: 11px; border-radius: 50%; background: var(--line-2); }
+    .browser-bar em { margin-left: 12px; font-style: normal; font-size: 13px; color: var(--muted); }
+    .demo-desk { display: block; width: 100%; height: clamp(580px, 76vh, 800px); border: 0; background: var(--paper); }
+    .phone-frame { width: min(414px, 100%); margin: 0 auto; padding: 14px; border-radius: 48px; background: var(--side); box-shadow: 0 40px 70px -40px rgba(0, 0, 0, .5); }
+    .demo-pwa { display: block; width: 100%; aspect-ratio: 390 / 820; height: auto; border: 0; border-radius: 36px; background: var(--paper); }
+    .demo-note { text-align: center; color: var(--muted); font-size: 14.5px; line-height: 1.6; margin-top: 22px; max-width: 64ch; margin-left: auto; margin-right: auto; }
+    .demo-links { text-align: center; margin-top: 18px; font-size: 14.5px; }
+    .demo-links a { font-weight: 700; text-underline-offset: 3px; }
 
     /* Tablet */
-    @media (max-width:1024px) {
-      .stats-grid { grid-template-columns:1fr 1fr; }
-      .dev-grid { grid-template-columns:1fr; gap:36px; }
-      h1 { font-size:44px; }
-      h2 { font-size:34px; }
-      .hero .wrap, .feature { grid-template-columns:1fr; gap:48px; }
-      .feature.flip > :first-child { order:0; }
-      .grid4, .sec { grid-template-columns:1fr 1fr; }
-      .grid3 { grid-template-columns:1fr 1fr; }
-      .nav .links a:not(.btn) { display:none; }
+    @media (max-width: 1024px) {
+      .nav .links a:not(.btn) { display: none; }
+      .hero .wrap, .feature, .dev-grid { grid-template-columns: 1fr; gap: 56px; }
+      .hero { padding: 48px 0 96px; }
+      .feature.flip > :first-child { order: 0; }
+      .ways, .steps, .flow { grid-template-columns: 1fr 1fr; }
+      .step:nth-child(3) { padding-left: 0; border-left: 0; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .stats-grid > div:nth-child(3) { border-left: 0; padding-left: 0; }
+      .stats-grid > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+      .plans { grid-template-columns: 1fr; max-width: 520px; }
+      .plan.featured { transform: none; }
     }
     /* Phone */
-    @media (max-width:640px) {
-      .wrap { padding:0 18px; }
-      section { padding:72px 0; }
-      .hero { padding:56px 0 80px; }
-      h1 { font-size:34px; }
-      h2 { font-size:28px; }
-      .grid4, .grid3, .sec, .plans, .sec-list { grid-template-columns:1fr; }
-      .stats-grid { grid-template-columns:1fr; }
-      .plan.featured { transform:none; }
-      .cta { flex-direction:column; }
-      .cta .btn { width:100%; }
-      footer .wrap { grid-template-columns:1fr; }
-      .card:hover { transform:none; }
+    @media (max-width: 640px) {
+      .wrap { padding: 0 20px; }
+      section { padding: 84px 0; }
+      .hero { padding: 36px 0 84px; }
+      .hero .wrap { gap: 34px; }
+      .steps, .ways, .flow, .sec-list { grid-template-columns: 1fr; }
+      .step, .step + .step { padding: 24px 0 0; border-left: 0; }
+      .sec-list { column-gap: 0; margin-top: 44px; }
+      .sec-list li { padding-left: 60px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .stats-grid > div { padding: 28px 16px; }
+      .stats-grid > div:nth-child(odd) { padding-left: 0; }
+      .stat-n { font-size: 40px; }
+      .feature + .feature { margin-top: 84px; }
+      .cta .btn { width: 100%; }
+      footer .foot-grid { grid-template-columns: 1fr; }
+    }
+    /* Top section in the Wise style: white bar, lime pill actions, a centred heavy headline, the photo below. */
+    .nav { background: #ffffff; border-bottom: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .nav .wrap { height: 80px; max-width: 1400px; }
+    .logo, .logo strong { color: #163300; }
+    .logo strong { font: 800 26px/1 var(--sans); letter-spacing: -.03em; }
+    .nav .links { gap: 26px; }
+    .nav .links a:not(.btn) { color: #163300; font-weight: 700; font-size: 15px; }
+    .nav .links a:not(.btn):hover { color: #163300; text-decoration: underline; text-underline-offset: 4px; }
+    .nav .btn { background: #9fe870; border-color: #9fe870; color: #163300; font-weight: 700; border-radius: 999px; }
+    .nav .btn:hover { background: #8ddb58; border-color: #8ddb58; }
+
+    .hero { background: #ffffff; padding: 48px 0 104px; }
+    .hero .wrap { grid-template-columns: 1fr; gap: 56px; text-align: center; }
+    .hero .wrap > div:first-child { display: flex; flex-direction: column; align-items: center; }
+    .hero .eyebrow { color: #163300; font-weight: 700; }
+    .hero .eyebrow::before { background: #9fe870; }
+    .hero h1 { font-family: var(--sans); font-weight: 900; text-transform: uppercase; font-size: clamp(44px, 7.6vw, 98px); line-height: .92; letter-spacing: -.035em; max-width: 15ch; color: #0e0f0c; margin: 22px 0 0; }
+    .hero .lead { font-size: 20px; color: #2b3a26; max-width: 46ch; margin: 24px auto 0; text-align: center; }
+    .hero .cta { justify-content: center; margin-top: 32px !important; }
+    .hero .cta .btn { background: #9fe870; border-color: #9fe870; color: #163300; font-weight: 700; border-radius: 999px; box-shadow: none; }
+    .hero .cta .btn:hover { background: #8ddb58; border-color: #8ddb58; }
+    .hero .cta .btn.ghost { background: transparent; color: #163300; border: 1.5px solid #163300; }
+    .hero .trust { justify-content: center; margin-top: 28px; }
+    .hero-art { width: 100%; max-width: 980px; margin: 0 auto; }
+    .hero-art img { aspect-ratio: 16 / 9; border-radius: 28px; box-shadow: none; filter: none; }
+    .ledger-float { max-width: 560px; margin: 18px auto 0; }
+    /* The globe sits behind the headline as the backdrop, and the text stays on top of it. */
+    .hero .wrap > div:first-child { position: relative; isolation: isolate; }
+    .hero-globe { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: min(1040px, 124%); height: auto; z-index: -1; pointer-events: none; -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%); }
+
+    /* Top: the globe and the big headline, centred. Below: the copy on the left, the photo on the right. */
+    .hero .wrap { display: block; max-width: 1400px; }
+    .hero h1 { font-size: clamp(48px, 7vw, 116px); max-width: 16ch; }
+    .hero-globe { width: min(1240px, 128%); }
+    .hero-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 88px; align-items: start; margin-top: 72px; text-align: left; }
+    .hero-copy .lead { font-size: 21px; max-width: 46ch; }
+    .hero-copy { display: flex; flex-direction: column; align-items: flex-start; padding-top: 28px; }
+    .hero-copy .lead { margin: 0; text-align: left; max-width: 44ch; }
+    .hero-copy .cta, .hero-copy .trust { justify-content: flex-start; }
+    .hero-copy .cta { margin-top: 32px !important; }
+    .hero-copy .trust { flex-direction: column; gap: 8px; margin-top: 26px; }
+    .hero-art { max-width: none; margin: 0; }
+    .hero-art img { aspect-ratio: 1 / 1; }
+    .hero-copy .ledger-float { max-width: 480px; width: 100%; margin: 40px 0 0; }
+    @media (max-width: 900px) {
+      .hero-row { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+      .hero-copy { align-items: center; }
+      .hero-copy .lead { margin: 0 auto; text-align: center; }
+      .hero-copy .cta, .hero-copy .trust { justify-content: center; }
+      .hero-copy .trust { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+      .hero-art img { aspect-ratio: 4 / 3; }
     }
   </style>
 </head>
@@ -195,14 +290,19 @@
 
 <nav class="nav">
   <div class="wrap">
-    <a class="logo" href="#top"><img class="logo-img" src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636784/zzdb67acutljcajupebj.png" alt="ClearPaid" width="188" height="42"></a>
+    <a class="logo" href="#top" aria-label="ClearPaid home">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="#163300"/><path d="M11.5 21.2l5.1 5.1L28.6 14" fill="none" stroke="#9fe870" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <strong>ClearPaid</strong>
+    </a>
     <div class="links">
+      <a href="#demo">Live demo</a>
       <a href="#how">How it works</a>
       <a href="#ways">Use cases</a>
       <a href="#features">Features</a>
       <a href="#security">Security</a>
+      <a href="#paypal">PayPal</a>
       <a href="#pricing">Pricing</a>
-      <a class="btn" href="../freelancer/index.html">Open the app</a>
+      <a class="btn" href="../freelancer/index.html" target="_blank" rel="noopener">Open the app</a>
     </div>
   </div>
 </nav>
@@ -212,26 +312,72 @@
 <!-- HERO -->
 <header class="hero">
   <div class="wrap">
-    <div>
+    <div class="hero-top">
+      <img class="hero-globe" src="/landing/assets/wise-globe.png" alt="" aria-hidden="true" width="965" height="463">
       <span class="eyebrow">Invoicing for freelancers and small teams</span>
       <h1>Get paid by clients abroad. Know exactly what reaches your bank.</h1>
+    </div>
+
+    <div class="hero-row">
+    <div class="hero-copy">
       <p class="lead">Send invoices through PayPal, approve every AI reply before it goes out, and see the rupees you will receive after fees and conversion.</p>
-      <div class="cta" style="margin-top:34px;">
+      <div class="cta" style="margin-top:36px;">
         <a class="btn" href="/auth/demo">Try the demo</a>
-        <a class="btn ghost" href="../freelancer/index.html">Open the app</a>
+        <a class="btn ghost" href="../freelancer/index.html" target="_blank" rel="noopener">Open the app</a>
       </div>
       <div class="trust">
         <span>Built on PayPal's sandbox</span>
         <span>You approve every message</span>
         <span>No card or bank data stored by us</span>
       </div>
+      <div class="ledger-float lp-card" aria-label="Sample figures">
+        <span class="eyebrow">Sample figures</span>
+        <div class="ledger-row"><span>FP-2026-001 · Asha</span><span class="tag ok">Paid</span></div>
+        <div class="ledger-row"><span>FP-2026-002 · Ravi</span><span class="tag wait">Sent</span></div>
+        <div class="ledger-total"><span>You receive, about</span><strong>₹38,285</strong></div>
+      </div>
     </div>
 
-    <div class="hero-img"><img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636782/v3pn8sjjlx74uc9akmd9.jpg" alt="A freelancer working from a home office" width="1400" height="1050"></div>
+    <div class="hero-art">
+      <img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636782/v3pn8sjjlx74uc9akmd9.jpg" alt="A freelancer working from a home office" width="1400" height="1050">
+    </div>
+    </div>
   </div>
 </header>
 
-<!-- TRUST STRIP -->
+<!-- WORKING DEMO -->
+<section id="demo" class="demo-sec">
+  <div class="wrap">
+    <div class="centre">
+      <span class="eyebrow">Working demo</span>
+      <h2>Try ClearPaid right here</h2>
+      <p class="sub">These are the real pages, running on this server in demo mode. Press "Try the demo" inside either one. Demo accounts can explore every screen, but cannot send invoices or reminders.</p>
+    </div>
+
+    <div class="demo-tabs" role="tablist" aria-label="Choose a version to try">
+      <button class="tab-btn" role="tab" id="tab-desk" data-tab="desk" aria-selected="true" aria-controls="panel-desk" tabindex="0">Desktop website</button>
+      <button class="tab-btn" role="tab" id="tab-pwa" data-tab="pwa" aria-selected="false" aria-controls="panel-pwa" tabindex="-1">Phone app (PWA)</button>
+    </div>
+
+    <div class="demo-panel" role="tabpanel" id="panel-desk" aria-labelledby="tab-desk">
+      <div class="browser-frame">
+        <div class="browser-bar" aria-hidden="true"><span></span><span></span><span></span><em>ClearPaid · desktop website</em></div>
+        <iframe class="demo-desk" title="ClearPaid desktop website, live demo" data-src="/freelancer/desktop/index.html"></iframe>
+      </div>
+      <p class="demo-links"><a href="/freelancer/desktop/index.html" target="_blank" rel="noopener">Open the desktop website in a new tab ↗</a></p>
+    </div>
+
+    <div class="demo-panel" role="tabpanel" id="panel-pwa" aria-labelledby="tab-pwa" hidden>
+      <div class="phone-frame">
+        <iframe class="demo-pwa" title="ClearPaid phone app, live demo" data-src="/freelancer/mobile/index.html"></iframe>
+      </div>
+      <p class="demo-note">The phone app is a progressive web app. On a phone, use your browser's menu and choose "Add to Home Screen" to install it. It then opens like an app, and its main screens work offline.</p>
+      <p class="demo-links"><a href="/freelancer/mobile/index.html" target="_blank" rel="noopener">Open the phone app in a new tab ↗</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- KEY FIGURES -->
 <div class="stats" aria-label="Key figures">
   <div class="wrap stats-grid">
     <div><div class="stat-n">85%</div><div class="stat-l">of freelancers face late payments at least sometimes (Remote, 2025)</div></div>
@@ -245,7 +391,7 @@
 <section class="dev">
   <div class="wrap dev-grid">
     <div>
-      <span class="eyebrow dev-eye">For developers</span>
+      <span class="eyebrow">For developers</span>
       <h2>Invoices as an API, with every step logged</h2>
       <p class="dev-sub">Create an invoice, send it through PayPal, then check its status. The server keeps the record, signs proofs, and refuses duplicates.</p>
       <ul class="dev-list">
@@ -274,46 +420,46 @@ POST /api/invoices/{id}/send
       <h2>From client bill to money in your account</h2>
       <p class="sub">Four steps. Anything that touches a client or money waits for your approval.</p>
     </div>
-    <div class="grid4">
-      <div class="card"><div class="step-no">1</div><h3>Scan or upload the bill</h3><p>A photo, PDF or email is read on your device. You check every field before it is used.</p></div>
-      <div class="card"><div class="step-no">2</div><h3>Send through PayPal</h3><p>The invoice is created and emailed to the client. PayPal confirms each payment.</p></div>
-      <div class="card"><div class="step-no">3</div><h3>Reply, with your approval</h3><p>Type or speak the client's message. The AI suggests a reply, and nothing is sent until you do it.</p></div>
-      <div class="card"><div class="step-no">4</div><h3>Know what arrives</h3><p>See the rupees after fees and conversion, and export a monthly ledger for your accountant.</p></div>
+    <div class="steps">
+      <div class="step"><span class="step-no">01</span><h3>Scan or upload the bill</h3><p>A photo, PDF or email is read on your device. You check every field before it is used.</p></div>
+      <div class="step"><span class="step-no">02</span><h3>Send through PayPal</h3><p>The invoice is created and emailed to the client. PayPal confirms each payment.</p></div>
+      <div class="step"><span class="step-no">03</span><h3>Reply, with your approval</h3><p>Type or speak the client's message. The AI suggests a reply, and nothing is sent until you do it.</p></div>
+      <div class="step"><span class="step-no">04</span><h3>Know what arrives</h3><p>See the rupees after fees and conversion, and export a monthly ledger for your accountant.</p></div>
     </div>
   </div>
 </section>
 
 <!-- USE CASES -->
-<section id="ways" class="soft">
+<section id="ways" class="band-soft">
   <div class="wrap">
     <div class="centre">
       <span class="eyebrow">Use cases</span>
       <h2>Built for how freelancers actually work</h2>
       <p class="sub">Start with one invoice, or run a shared project with other people.</p>
     </div>
-    <div class="grid3">
-      <article class="card way">
-        <div class="pic"><img src="assets/invoice.svg" alt="An invoice marked as sent to the client"></div>
+    <div class="ways">
+      <article class="lp-card way">
+        <div class="pic"><img src="/landing/assets/invoice.svg" alt="An invoice marked as sent to the client" width="400" height="300"></div>
         <div class="body">
           <h3>One client, one invoice</h3>
           <p>Scan the bill, check the details, and send it through PayPal. Share a signed proof when the client asks for one.</p>
-          <a class="more" href="../freelancer/index.html">Open invoices →</a>
+          <a class="more" href="../freelancer/index.html" target="_blank" rel="noopener">Open invoices →</a>
         </div>
       </article>
-      <article class="card way">
-        <div class="pic"><img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636782/u3fgr9shkokl61ncwr6x.jpg" alt="Three colleagues looking at one laptop" onerror="this.onerror=null;this.src='assets/team.svg'"></div>
+      <article class="lp-card way">
+        <div class="pic"><img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636782/u3fgr9shkokl61ncwr6x.jpg" alt="Three colleagues looking at one laptop" onerror="this.onerror=null;this.src='/landing/assets/team.jpg'"></div>
         <div class="body">
           <h3>Shared project</h3>
           <p>One client, several freelancers. Each person is invoiced for their own share, and the app tracks what is paid and what is owed.</p>
-          <a class="more" href="../freelancer/index.html">Set up a project →</a>
+          <a class="more" href="../freelancer/index.html" target="_blank" rel="noopener">Set up a project →</a>
         </div>
       </article>
-      <article class="card way">
-        <div class="pic"><img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636783/lkucyir1xbzu9u0mdv3u.jpg" alt="A person checking their phone at a café" onerror="this.onerror=null;this.src='assets/hero.svg'"></div>
+      <article class="lp-card way">
+        <div class="pic"><img src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636783/lkucyir1xbzu9u0mdv3u.jpg" alt="A person checking their phone at a café" onerror="this.onerror=null;this.src='/landing/assets/payment.jpg'"></div>
         <div class="body">
           <h3>Money and records</h3>
           <p>See what reaches your bank after fees, compare routes, and download a monthly ledger for your accountant.</p>
-          <a class="more" href="../freelancer/index.html">Open the money view →</a>
+          <a class="more" href="../freelancer/index.html" target="_blank" rel="noopener">Open the money view →</a>
         </div>
       </article>
     </div>
@@ -334,14 +480,12 @@ POST /api/invoices/{id}/send
           <li>Sent by WhatsApp or email, from your own app</li>
         </ul>
       </div>
-      <div class="tilt3d">
-        <div>
-          <div class="row"><span>Sample invoice FP-2026-001</span><span class="pill-ai">Sample</span></div>
-          <div class="qr" id="sampleQr" role="img" aria-label="Sample QR code that opens the ClearPaid app"></div>
-          <div class="row"><span class="muted">Amount</span><span>$500.00</span></div>
-          <div class="row"><span class="muted">Issued</span><span>1 Nov 2026</span></div>
-          <div class="row"><span class="muted">Signature</span><span>Signed by the server</span></div>
-        </div>
+      <div class="panel-card lp-card">
+        <div class="ledger-line"><span>Sample invoice FP-2026-001</span><span class="tag ai">Sample</span></div>
+        <div class="qr" id="sampleQr" role="img" aria-label="Sample QR code that opens the ClearPaid app"></div>
+        <div class="ledger-line"><span class="muted">Amount</span><span>$500.00</span></div>
+        <div class="ledger-line"><span class="muted">Issued</span><span>1 Nov 2026</span></div>
+        <div class="ledger-line"><span class="muted">Signature</span><span>Signed by the server</span></div>
       </div>
     </div>
 
@@ -356,14 +500,12 @@ POST /api/invoices/{id}/send
           <li>Routing to each person's own PayPal account is planned, not yet built</li>
         </ul>
       </div>
-      <div class="tilt3d">
-        <div>
-          <div class="row"><span>Asha</span><span class="pill-ok">Paid · $500</span></div>
-          <div class="row"><span>Ravi</span><span class="pill-ai">Invoice sent · $300</span></div>
-          <div class="row"><span>Meera</span><span style="color:var(--bad);font-weight:600;">Not invoiced · $200</span></div>
-          <div class="meter"><span style="width:50%;background:var(--brand)"></span><span style="width:30%;background:var(--accent)"></span><span style="width:20%;background:var(--line)"></span></div>
-          <p class="muted" style="font-size:13px;">The app holds no money. Each share is paid to its owner.</p>
-        </div>
+      <div class="panel-card lp-card">
+        <div class="ledger-line"><span>Asha</span><span class="tag ok">Paid · $500</span></div>
+        <div class="ledger-line"><span>Ravi</span><span class="tag ai">Invoice sent · $300</span></div>
+        <div class="ledger-line"><span>Meera</span><span class="loss">Not invoiced · $200</span></div>
+        <div class="meter"><span style="width:50%;background:var(--pine)"></span><span style="width:30%;background:var(--marigold)"></span><span style="width:20%;background:var(--line-2)"></span></div>
+        <p class="muted" style="font-size:13px;">The app holds no money. Each share is paid to its owner.</p>
       </div>
     </div>
 
@@ -378,20 +520,18 @@ POST /api/invoices/{id}/send
           <li>Amounts and dates are confirmed separately, because numbers are easy to mishear</li>
         </ul>
       </div>
-      <div class="tilt3d">
-        <div>
-          <div class="bubble">"Sorry for the delay, I'll pay this on Friday."</div>
-          <div class="bubble me">Thanks. I'll check the payment on Monday.</div>
-          <div class="row"><span>Reading</span><span class="pill-ai">Promises to pay</span></div>
-          <div class="row"><span>Suggested reply</span><span class="muted">Waiting for you</span></div>
-        </div>
+      <div class="panel-card lp-card">
+        <div class="bubble">"Sorry for the delay, I'll pay this on Friday."</div>
+        <div class="bubble me">Thanks. I'll check the payment on Monday.</div>
+        <div class="ledger-line" style="margin-top:6px;"><span>Reading</span><span class="tag ai">Promises to pay</span></div>
+        <div class="ledger-line"><span>Suggested reply</span><span class="muted">Waiting for you</span></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- SECURITY -->
-<section id="security" class="soft">
+<section id="security" class="band-soft">
   <div class="wrap">
     <div class="centre">
       <span class="eyebrow">Security</span>
@@ -410,7 +550,7 @@ POST /api/invoices/{id}/send
     </ul>
     <div class="honest">
       <h3>Not finished yet</h3>
-      <p class="muted">We will not claim more than the build does. Before real customers we still need user accounts with sign-in, HTTPS on a public domain, removal of the remaining inline scripts, an independent security review, and a written data-retention schedule. See <a href="../legal/security.html">Security &amp; Data</a>.</p>
+      <p>We will not claim more than the build does. Before real customers we still need user accounts with sign-in, HTTPS on a public domain, removal of the remaining inline scripts, an independent security review, and a written data-retention schedule. See <a href="../legal/security.html">Security &amp; Data</a>.</p>
     </div>
   </div>
 </section>
@@ -424,7 +564,7 @@ POST /api/invoices/{id}/send
       <p class="sub">PayPal's own fees apply to real payments, and we will show them before you pay.</p>
     </div>
     <div class="plans">
-      <div class="card plan">
+      <div class="lp-card plan">
         <h3>Prototype</h3>
         <div class="price">Free</div>
         <p class="muted">For trying the app on PayPal's sandbox.</p>
@@ -434,7 +574,7 @@ POST /api/invoices/{id}/send
           <li>Money view and monthly ledger</li>
         </ul>
       </div>
-      <div class="card plan featured">
+      <div class="lp-card plan featured">
         <h3>Live (planned)</h3>
         <div class="price">To be set</div>
         <p class="muted">For real freelancers, after a security review and sign-in are in place.</p>
@@ -448,10 +588,49 @@ POST /api/invoices/{id}/send
   </div>
 </section>
 
-<!-- FAQ -->
-<section id="faq" class="soft">
+<!-- PAYPAL -->
+<section id="paypal" class="paypal-sec">
   <div class="wrap">
-    <div class="centre" style="margin-bottom:34px;"><span class="eyebrow">FAQ</span><h2>Questions</h2></div>
+    <div class="centre">
+      <span class="eyebrow">Built on PayPal</span>
+      <h2>PayPal moves the money. ClearPaid does everything around it.</h2>
+      <p class="sub">ClearPaid never holds funds. Each step below calls a PayPal API, and PayPal confirms the result. The app shows every PayPal step in its "PayPal at work" timeline.</p>
+    </div>
+    <ol class="flow">
+      <li class="flow-step">
+        <span class="flow-n">1</span>
+        <h3>Sign in with PayPal</h3>
+        <p>Freelancers log in with their PayPal account (OpenID Connect). ClearPaid never sees the password.</p>
+        <code>Log in with PayPal</code>
+      </li>
+      <li class="flow-step">
+        <span class="flow-n">2</span>
+        <h3>Create and send the invoice</h3>
+        <p>The Invoicing API creates the invoice, and PayPal emails it to the client.</p>
+        <code>POST /v2/invoicing/invoices</code>
+        <code>POST …/send</code>
+      </li>
+      <li class="flow-step">
+        <span class="flow-n">3</span>
+        <h3>Confirm the payment</h3>
+        <p>PayPal sends a signed webhook when an invoice is paid. ClearPaid checks the signature and that the event is recent, then shows "paid".</p>
+        <code>INVOICING.INVOICE.PAID</code>
+      </li>
+      <li class="flow-step">
+        <span class="flow-n">4</span>
+        <h3>Remind, with your approval</h3>
+        <p>Overdue invoices get a reminder through PayPal's reminder endpoint, only after the freelancer approves it.</p>
+        <code>POST …/remind</code>
+      </li>
+    </ol>
+    <p class="paypal-note">Today this runs on the PayPal sandbox, so no real money moves. A live release needs PayPal's production approval for each feature.</p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="centre"><span class="eyebrow">FAQ</span><h2>Questions</h2></div>
     <div class="faq">
       <details><summary>Does the app send money?</summary><p>No. Clients pay PayPal. The app creates and sends invoices and shows what PayPal reports. It never moves money between people.</p></details>
       <details><summary>Does AI send messages for me?</summary><p>No. It suggests a reply, and you copy it or share it yourself. Nothing is sent automatically.</p></details>
@@ -468,7 +647,7 @@ POST /api/invoices/{id}/send
   <div class="wrap">
     <h2>Send your first invoice in the sandbox</h2>
     <p>Open the app, paste a sample client email, and see the rupees you would receive.</p>
-    <a class="btn white" href="../freelancer/index.html">Open the app</a>
+    <a class="btn gold" href="../freelancer/index.html" target="_blank" rel="noopener">Open the app</a>
   </div>
 </section>
 
@@ -476,26 +655,31 @@ POST /api/invoices/{id}/send
 
 <footer>
   <div class="wrap">
-    <div>
-      <span class="logo" style="margin-bottom:12px;"><img class="logo-img" src="https://res.cloudinary.com/vzzr3afu/image/upload/f_auto,q_auto,w_1400/v1793636784/zzdb67acutljcajupebj.png" alt="ClearPaid" width="188" height="42"></span>
-      <p style="margin-top:12px;max-width:340px;">Hackathon prototype. Built on PayPal's sandbox. Estimates are not financial or tax advice.</p>
+    <div class="foot-grid">
+      <div>
+        <span class="logo">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="#1d5f53"/><path d="M11.5 21.2l5.1 5.1L28.6 14" fill="none" stroke="#e3a03a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong>ClearPaid</strong>
+        </span>
+        <p>Hackathon prototype. Built on PayPal's sandbox. Estimates are not financial or tax advice.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="../freelancer/index.html" target="_blank" rel="noopener">Open the app</a>
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="../legal/privacy.html">Privacy Policy</a>
+        <a href="../legal/terms.html">Terms of Use</a>
+        <a href="../legal/disclaimer.html">Disclaimer</a>
+        <a href="../legal/security.html">Security &amp; Data</a>
+      </div>
     </div>
-    <div>
-      <h4>Product</h4>
-      <a href="../freelancer/index.html">Open the app</a>
-      <a href="#how">How it works</a>
-      <a href="#pricing">Pricing</a>
+    <div class="foot-legal">
+      <span>© 2026 ClearPaid · Images: original artwork or licensed photographs. Photo credits to be added before publication.</span>
     </div>
-    <div>
-      <h4>Legal</h4>
-      <a href="../legal/privacy.html">Privacy Policy</a>
-      <a href="../legal/terms.html">Terms of Use</a>
-      <a href="../legal/disclaimer.html">Disclaimer</a>
-      <a href="../legal/security.html">Security &amp; Data</a>
-    </div>
-  </div>
-  <div class="wrap" style="margin-top:30px;font-size:13px;">
-    <span>© 2026 ClearPaid · Images: original artwork or licensed photographs. Photo credits to be added before publication.</span>
   </div>
 </footer>
 
@@ -507,6 +691,33 @@ POST /api/invoices/{id}/send
     q.addData(window.location.origin + "/freelancer/index.html");
     q.make();
     document.getElementById("sampleQr").innerHTML = q.createSvgTag(4, 2);
+  })();
+</script>
+<script>
+  // Two live previews. The desktop site loads at once; the phone app loads the first time its tab opens.
+  (function () {
+    var tabs = document.querySelectorAll('.tab-btn');
+    function show(name) {
+      tabs.forEach(function (t) {
+        var on = t.dataset.tab === name;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById('panel-' + t.dataset.tab).hidden = !on;
+      });
+      var frame = document.querySelector('#panel-' + name + ' iframe');
+      if (frame && !frame.getAttribute('src')) frame.src = frame.dataset.src;
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { show(t.dataset.tab); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          var next = t.dataset.tab === 'desk' ? 'pwa' : 'desk';
+          show(next);
+          document.getElementById('tab-' + next).focus();
+        }
+      });
+    });
+    show('desk');
   })();
 </script>
 </body>

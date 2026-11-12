@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>__TITLE__</title>
+  <meta name="description" content="ClearPaid for the desktop: send PayPal invoices, read client replies with AI, and see what reaches your bank in rupees. हिन्दी और English।">
+  <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
+  <meta name="theme-color" content="#163300">
+  <link rel="stylesheet" href="../shared/app.css">
+  <link rel="stylesheet" href="../shared/desktop.css">
+</head>
+<body data-shell="desktop" data-view="__VIEW__">
+  <div class="d-shell">
+    <aside class="d-side">
+      <div class="d-brand">
+        <svg class="d-mark" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="#1d5f53"/><path d="M11.5 21.2l5.1 5.1L28.6 14" fill="none" stroke="#9fe870" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><strong>ClearPaid</strong><span>Get paid, keep more</span></div>
+      </div>
+      <div class="chips d-pills">
+        <span class="pill" id="pillPaypal">PayPal: checking…</span>
+        <span class="pill ai" id="pillAi">AI: checking…</span>
+      </div>
+
+      <nav class="d-nav" aria-label="Main">
+        <a data-nav="home" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span data-i18n="nav.overview">Overview</span></a>
+        <div class="d-group" data-i18n="nav.groupWork">Work</div>
+        <a data-nav="invoices" href="invoices.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg><span data-i18n="tab.invoices">Invoices</span></a>
+        <a data-nav="scan" href="scan.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2M7 12h10"/></svg><span data-i18n="nav.scanBill">Scan a bill</span></a>
+        <a data-nav="reminders" href="reminders.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="nav.reminders">Reminders</span></a>
+        <a data-nav="projects" href="projects.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c2.8 0 6 1.8 6 5"/></svg><span data-i18n="nav.projects">Shared projects</span></a>
+        <div class="d-group" data-i18n="nav.groupMoney">Money</div>
+        <a data-nav="replies" href="replies.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg><span data-i18n="nav.clientReplies">Client replies</span></a>
+        <a data-nav="money" href="money.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/></svg><span data-i18n="nav.rupees">Rupees and ledger</span></a>
+        <div class="d-group" data-i18n="nav.groupProof">Proof</div>
+        <a data-nav="activity" href="activity.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h4l2-6 4 12 2-6h4"/></svg><span data-i18n="nav.activity">PayPal activity</span></a>
+      </nav>
+
+      <div class="d-foot">
+        <button class="lang d-lang" id="langBtn" type="button" aria-label="Change language">हिन्दी</button>
+        <a href="../mobile/index.html" data-i18n="nav.mobile">Open the mobile app</a>
+      </div>
+    </aside>
+
+    <main class="d-main">
+      <!-- COMMON -->
+      <!-- VIEWS -->
+      <p class="foot" data-i18n="foot.note">Prototype for the PayPal “Build What’s Next” hackathon. PayPal sandbox only. No real money moves in this demo. Estimates are not financial or tax advice.</p>
+      <p class="foot">
+        <a href="../../legal/privacy.html">Privacy</a> · <a href="../../legal/terms.html">Terms</a> · <a href="../../legal/disclaimer.html">Disclaimer</a> · <a href="../../legal/security.html">Security &amp; data</a>
+      </p>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="../calc.js"></script>
+  <script src="../lib/parse-invoice.js"></script>
+  <script src="../lib/ledger.js"></script>
+  <script src="../lib/i18n.js"></script>
+  <script src="../shared/app.js"></script>
+</body>
+</html>

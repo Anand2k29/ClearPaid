@@ -38,10 +38,10 @@ test("security headers are set, including a strict CSP and no-store for the API"
   const res = { setHeader: (k, v) => { h[k] = v; } };
   S.setSecurityHeaders(res, { api: true });
   assert.equal(h["X-Content-Type-Options"], "nosniff");
-  assert.equal(h["X-Frame-Options"], "DENY");
+  assert.equal(h["X-Frame-Options"], "SAMEORIGIN");
   assert.match(h["Content-Security-Policy"], /default-src 'self'/);
   assert.match(h["Content-Security-Policy"], /object-src 'none'/);
-  assert.match(h["Content-Security-Policy"], /frame-ancestors 'none'/);
+  assert.match(h["Content-Security-Policy"], /frame-ancestors 'self'/, "only this site can frame the pages");
   assert.equal(h["Cache-Control"], "no-store");
   assert.equal(h["Referrer-Policy"], "no-referrer");
 });

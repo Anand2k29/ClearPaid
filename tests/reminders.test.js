@@ -4,13 +4,14 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const R = require("../server/reminders.js");
-const { createStore } = require("../server/store.js");
+const { createJsonStore, DEVELOPER_OWNER } = require("../server/store.js");
 
+const OWNER = DEVELOPER_OWNER;
 const TODAY = new Date(2026, 10, 20); // 20 November 2026
 const NOW = TODAY.getTime();
 
 function store() {
-  return createStore(path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cp-rem-")), "s.json"));
+  return createJsonStore(path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cp-rem-")), "s.json"));
 }
 
 function sentInvoice(overrides = {}) {
@@ -51,63 +52,86 @@ test("the reminder wording states only the invoice, amount and due date", () => 
 
 test("approving sends one PayPal reminder and records it", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice());
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice());
   const calls = [];
   const paypal = { remindInvoice: async (id, note) => { calls.push({ id, note }); return {}; } };
-  const r = await R.approveReminder("INV2-1", { store: s, paypal, now: NOW });
+  const r = await R.approveReminder("INV2-1", { store: s, paypal, ownerId: OWNER, now: NOW });
   assert.equal(r.sent, true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].id, "INV2-1");
-  assert.equal(s.get("INV2-1").reminderCount, 1);
-  assert.ok(s.get("INV2-1").lastRemindedAt);
+  const after = await s.getInvoice(OWNER, "INV2-1");
+  assert.equal(after.reminderCount, 1);
+  assert.ok(after.lastRemindedAt);
 });
 
 test("an invoice cannot be reminded twice within the weekly gap", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice());
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice());
   const paypal = { remindInvoice: async () => ({}) };
-  await R.approveReminder("INV2-1", { store: s, paypal, now: NOW });
-  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, now: NOW + 86400000 }), /less than 7 days/);
+  await R.approveReminder("INV2-1", { store: s, paypal, ownerId: OWNER, now: NOW });
+  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, ownerId: OWNER, now: NOW + 86400000 }), /less than 7 days/);
 });
 
 test("a paid invoice cannot be reminded, and nothing is sent", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice({ status: "PAID" }));
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice({ status: "PAID" }));
   let called = false;
   const paypal = { remindInvoice: async () => { called = true; return {}; } };
-  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, now: NOW }), /Only sent, unpaid/);
+  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, ownerId: OWNER, now: NOW }), /Only sent, unpaid/);
   assert.equal(called, false);
 });
 
 test("an invoice not yet due cannot be reminded", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice({ dueDate: "2026-12-01" }));
-  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal: { remindInvoice: async () => ({}) }, now: NOW }), /not past its due date/);
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice({ dueDate: "2026-12-01" }));
+  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal: { remindInvoice: async () => ({}) }, ownerId: OWNER, now: NOW }), /not past its due date/);
 });
 
 test("the daily limit stops a burst of reminders", async () => {
   const s = store();
   for (let i = 0; i < 3; i++) {
-    s.upsert(`INV2-${i}`, sentInvoice({ id: `INV2-${i}`, number: `FP-${i}`, lastRemindedAt: new Date(NOW + 1000).toISOString() }));
+    await s.saveInvoice(OWNER, `INV2-${i}`, sentInvoice({ id: `INV2-${i}`, number: `FP-${i}`, lastRemindedAt: new Date(NOW + 1000).toISOString() }));
   }
-  s.upsert("INV2-x", sentInvoice({ id: "INV2-x", number: "FP-x" }));
-  await assert.rejects(R.approveReminder("INV2-x", { store: s, paypal: { remindInvoice: async () => ({}) }, now: NOW, dailyCap: 3 }), /Daily reminder limit/);
+  await s.saveInvoice(OWNER, "INV2-x", sentInvoice({ id: "INV2-x", number: "FP-x" }));
+  await assert.rejects(R.approveReminder("INV2-x", { store: s, paypal: { remindInvoice: async () => ({}) }, ownerId: OWNER, now: NOW, dailyCap: 3 }), /Daily reminder limit/);
+});
+
+test("the daily limit counts only the owner's own reminders", async () => {
+  const s = store();
+  for (let i = 0; i < 3; i++) {
+    await s.saveInvoice("paypal:other", `OTH-${i}`, sentInvoice({ id: `OTH-${i}`, number: `OT-${i}`, lastRemindedAt: new Date(NOW + 1000).toISOString() }));
+  }
+  await s.saveInvoice(OWNER, "INV2-x", sentInvoice({ id: "INV2-x", number: "FP-x" }));
+  const r = await R.approveReminder("INV2-x", { store: s, paypal: { remindInvoice: async () => ({}) }, ownerId: OWNER, now: NOW, dailyCap: 3 });
+  assert.equal(r.sent, true, "another freelancer's reminders do not use up this freelancer's limit");
+});
+
+test("a freelancer cannot remind or snooze another freelancer's invoice", async () => {
+  const s = store();
+  await s.saveInvoice("paypal:maya", "INV2-1", sentInvoice());
+  let called = false;
+  const paypal = { remindInvoice: async () => { called = true; return {}; } };
+  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, ownerId: "paypal:other", now: NOW }), /not found/);
+  await assert.rejects(R.snoozeReminder("INV2-1", { store: s, ownerId: "paypal:other", now: NOW }), /not found/);
+  assert.equal(called, false);
+  assert.equal((await s.getInvoice("paypal:maya", "INV2-1")).lastRemindedAt, undefined);
 });
 
 test("a PayPal failure is raised and the reminder is not recorded as sent", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice());
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice());
   const paypal = { remindInvoice: async () => { throw new Error("PayPal POST failed (500)"); } };
-  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, now: NOW }), /PayPal/);
-  assert.equal(s.get("INV2-1").lastRemindedAt, undefined);
+  await assert.rejects(R.approveReminder("INV2-1", { store: s, paypal, ownerId: OWNER, now: NOW }), /PayPal/);
+  assert.equal((await s.getInvoice(OWNER, "INV2-1")).lastRemindedAt, undefined);
 });
 
-test("snoozing sets the weekly gap without sending anything", () => {
+test("snoozing sets the weekly gap without sending anything", async () => {
   const s = store();
-  s.upsert("INV2-1", sentInvoice());
-  R.snoozeReminder("INV2-1", { store: s, now: NOW });
-  assert.ok(s.get("INV2-1").lastRemindedAt);
-  assert.equal(s.get("INV2-1").reminderCount, undefined);
+  await s.saveInvoice(OWNER, "INV2-1", sentInvoice());
+  await R.snoozeReminder("INV2-1", { store: s, ownerId: OWNER, now: NOW });
+  const inv = await s.getInvoice(OWNER, "INV2-1");
+  assert.ok(inv.lastRemindedAt);
+  assert.equal(inv.reminderCount, undefined);
 });
 
 test("the due date can be moved forward by a number of days", () => {

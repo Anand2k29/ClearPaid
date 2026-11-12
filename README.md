@@ -50,9 +50,12 @@ ClearPaid is a web app for freelancers and small teams, built for the PayPal "Bu
 | Voice (dictation and voice-note transcription) | Built. Voice notes need a Groq key. Groq's Whisper model availability needs confirming |
 | Hindi and English interface | Built and checked in a browser |
 | Ledger export (CSV, formula-safe) | Built and unit-tested |
-| Sign in with PayPal | Logic built and tested. Routes and button not yet wired in |
-| User accounts and per-user data | Not built |
-| Hosting on Vercel | Not yet. Needs a hosted database for storage, sessions and rate limits |
+| Sign in with PayPal | Built: sign-in routes and button. Not yet run against a live sandbox app |
+| Per-user data | Built and tested. Each freelancer sees only their own invoices, projects and reminders |
+| Hosted database | Built: Postgres when `DATABASE_URL` is set, tested on a real Postgres server. Sessions and rate limits are still in memory |
+| Pay link (one-click PayPal order per invoice) | Built and unit-tested. Needs sandbox keys to run live. Approve-link name and return URL fields still to be checked in the sandbox |
+| Real PayPal fees (Transaction Search) | Built and unit-tested. Shows the fees PayPal actually charged on your paid invoices, not estimates. Needs sandbox keys and the reporting permission |
+| Hosting | Not yet deployed |
 
 Automated tests: see [Tests](#tests). All pass at the time of writing.
 
@@ -65,7 +68,7 @@ Browser (phone or desktop)
    │  landing page, app, legal pages (static files)
    │  bills are read on the device (OCR), never uploaded
    ▼
-ClearPaid server (Node.js, no framework, no runtime dependencies)
+ClearPaid server (Node.js, no web framework; one database driver, pg, loaded only when `DATABASE_URL` is set)
    │  access token on every API call · rate limits · security headers
    ├──► PayPal sandbox API     invoices, status, reminders, webhooks, sign-in
    ├──► AI providers (free)    Groq → Gemini → OpenRouter → rules (waterfall)
@@ -95,15 +98,17 @@ cp .env.example .env
 npm test
 
 # 4. Start the server with your settings
-node --env-file=.env server/index.js
+npm start
 ```
 
 Then open:
 - Landing page: http://localhost:3000/landing/index.html
-- App: http://localhost:3000/freelancer/index.html
+- Mobile app (phones, installable): http://localhost:3000/freelancer/mobile/index.html
+- Desktop website (laptops, one page per feature): http://localhost:3000/freelancer/desktop/index.html
+- Chooser (picks the right one for the screen width): http://localhost:3000/freelancer/index.html
 - Health check: http://localhost:3000/api/health
 
-The app asks for your **access token** (the `API_TOKEN` value from `.env`) the first time it calls the API. The browser keeps it only for that tab.
+Open either site and choose **Continue with PayPal** (sandbox sign-in) or **Try the demo**. A developer access token (the `API_TOKEN` value from `.env`) is under **Developer access** on the sign-in card. The browser keeps it only for that tab.
 
 > On Windows PowerShell, copy the file with `copy .env.example .env`. On Git Bash or macOS/Linux, use `cp`.
 
@@ -133,7 +138,9 @@ All settings live in a `.env` file in the project folder. The file is ignored by
 | `PUBLIC_URL` | `http://localhost:3000` | Address used in proof links and messages. Set it to your public HTTPS address when hosting |
 | `PORT` | `3000` | The port the server listens on |
 | `HOST` | `127.0.0.1` | Listens on this computer only. Change only when hosting |
+| `API_RATE_PER_MINUTE` | `240` | Requests per minute allowed for each address on the API. Raise it for a busy shared network; the AI limit is separate |
 | `DATA_FILE` | `data/store.json` | Where invoices and reminders are saved in local development |
+| `DATABASE_URL` | (empty) | Hosted Postgres connection string. When set, invoices and projects are stored there instead of the local file. Tables are created on first start |
 | `GROQ_MODELS`, `GEMINI_MODELS`, `OPENROUTER_MODELS` | Built-in lists | Comma-separated model names to try, in order |
 
 ### Generating the secrets
@@ -267,11 +274,13 @@ ClearPaid handles invoices and money, so the defaults are strict. Here is what t
 
 - **Access token on every API call.** Requests need a bearer token. Tokens are compared in constant time (`crypto.timingSafeEqual`).
 - **Secrets stay on the server.** PayPal and AI keys live in environment variables and are sent only in request headers, never in URLs or browser code.
-- **Strict browser policy.** A Content Security Policy limits where scripts and styles can come from. Pages cannot be framed (`frame-ancestors 'none'`). `nosniff`, a strict referrer policy and a permissions policy are set on every response.
+- **Strict browser policy.** A Content Security Policy limits where scripts and styles can come from. Pages can be framed by this site only (`frame-ancestors 'self'`), so the landing page can preview the app while other websites cannot embed it. `nosniff`, a strict referrer policy and a permissions policy are set on every response.
 - **No caching of API responses** (`Cache-Control: no-store`).
 - **Rate limits.** Every caller is limited per minute. AI calls also have a per-minute and a daily cap.
 - **Input checks.** Request bodies are size-limited. Invoice fields, dates, emails and amounts are validated before use. Invoice numbers are restricted to safe characters.
 - **No double sends.** The same invoice number cannot be created twice, and an invoice cannot be sent twice.
+- **Each freelancer sees only their own data.** Invoices, projects and reminders belong to one owner: the PayPal account that signed in, a demo visitor, or the developer token. Another person's records return "not found", and the server never returns them in a list. Webhooks are the only exception: they come from PayPal, and each one is checked by its signature.
+- **One PayPal account for now.** Invoices are created with the app's own PayPal credentials, so payments land in that account, not in each freelancer's own. Paying each freelancer directly needs PayPal's partner onboarding, which is on the roadmap.
 - **Signed proofs.** Each proof is signed with HMAC-SHA256 using `PROOF_SECRET`. Any change to the details breaks the signature. The proof page is public, but it is protected by a random 24-byte token and shows no contact details.
 - **Verified webhooks.** Every PayPal webhook is checked with PayPal's verification API, and events older or newer than five minutes are refused. Repeated events are ignored.
 - **AI scope gate.** Off-topic and rule-changing questions are refused before any model is called. Model answers are checked for length and role before they are shown.
@@ -289,13 +298,18 @@ ClearPaid handles invoices and money, so the defaults are strict. Here is what t
 ```
 collections-assistant/
 ├── .env.example            settings template (copy to .env, never commit .env)
-├── package.json            scripts: start and test. No runtime dependencies
+├── package.json            scripts: start, test and test:db. One runtime dependency (pg)
 ├── README.md               this file
 ├── landing/                product landing page and images
 │   ├── index.html
 │   └── assets/             logo, illustrations, photos
-├── freelancer/             main app (invoices, replies, money, projects, reminders)
-│   ├── index.html          the app: layout, styles and browser logic
+├── freelancer/             the app (invoices, scan, replies, money, projects, reminders, activity)
+│   ├── index.html          chooser: sends phones to the mobile app and wide screens to the desktop site
+│   ├── sw.js               service worker: offline mobile app, live data never cached
+│   ├── mobile/             generated mobile app (bottom tab bar, one screen at a time, installable)
+│   ├── desktop/            generated desktop website (sidebar, one page per feature)
+│   ├── shared/             the source for both sites: common.html, views.html (every screen),
+│   │                       mobile.html, desktop.html, app.js (behaviour), app.css, mobile.css, desktop.css
 │   ├── calc.js             money maths (fees, conversion, cost of waiting)
 │   └── lib/
 │       ├── parse-invoice.js   reads amounts, numbers, dates and clients from text
@@ -306,6 +320,7 @@ collections-assistant/
 ├── legal/                  privacy, terms, disclaimer, security and data pages
 ├── server/
 │   ├── index.js            HTTP server, routes, static files, security headers
+│   ├── env.js              loads .env into the environment (no dependency)
 │   ├── paypal.js           PayPal sandbox client (invoices, status, reminders)
 │   ├── webhooks.js         PayPal webhook verification and event handling
 │   ├── reminders.js        overdue finder, approval, weekly and daily limits
@@ -315,9 +330,15 @@ collections-assistant/
 │   ├── llm.js              free provider waterfall, keys, models, cooldowns
 │   ├── scope.js            on-topic gate and answer checks
 │   ├── security.js         token check, headers, rate limiting, safe errors
-│   ├── auth.js             sign in with PayPal logic (routes not yet wired)
-│   └── store.js            local JSON store (to be replaced by a hosted database)
-├── tests/                  automated tests, run with node --test
+│   ├── auth.js             sign in with PayPal (OpenID Connect), demo session, one-time sign-in state
+│   ├── store.js            storage rules and the local JSON file store (every record has an owner)
+│   └── store-postgres.js   hosted Postgres store, same rules, tables created on start
+├── scripts/
+│   ├── build-shells.js     builds the mobile and desktop pages from freelancer/shared (run after editing shared/)
+│   ├── smoke.js            live end-to-end checks against a running server
+│   ├── repeat-smoke.js     runs the smoke checks several times on fresh servers
+│   └── test-db.js          runs the Postgres store tests on a temporary local Postgres server
+├── tests/                  automated tests, run with node --test (includes shells.test.js, which checks both sites match)
 └── data/                   local store (created automatically, git-ignored)
 ```
 
@@ -331,7 +352,9 @@ Internal working notes are kept in the `process/` folder, which is git-ignored.
 npm test
 ```
 
-The suite uses Node's built-in test runner and needs no keys or network access. It covers:
+The suite uses Node's built-in test runner and needs no keys or network access. For the Postgres store, run `npm run test:db`. It starts a temporary local Postgres server (no Docker needed), runs the store tests against it, and shuts the server down. It covers:
+- invoice, project and reminder isolation between freelancers, demo visitors and the developer token, over real HTTP requests,
+- the same storage rules on the JSON file and on Postgres (owner checks, PAID never reversed, duplicate webhook events recorded once, even when they arrive at the same moment),
 - the server routes, including access control, rate limits, security headers and the localhost default,
 - the PayPal client, using a fake fetch,
 - webhook verification, replay protection and duplicate handling,
@@ -348,10 +371,10 @@ The suite uses Node's built-in test runner and needs no keys or network access. 
 
 ClearPaid is written as a single Node server with static pages. It is not yet ready for serverless hosting such as Vercel, for two reasons:
 
-1. **Storage.** Invoices and reminders are saved to a local JSON file. Serverless functions do not keep local files between requests.
-2. **Sessions and rate limits.** These live in the server's memory, so they reset constantly on serverless hosting.
+1. **Storage.** Invoices and projects are saved in Postgres when `DATABASE_URL` is set. Without it, a local JSON file is used, which hosting platforms may not keep between restarts.
+2. **Sessions and rate limits.** These still live in the server's memory, so a restart signs everyone out and resets the limits.
 
-The planned fix is a hosted key-value or SQL database for storage, sessions and rate limits, such as Upstash Redis or Neon (see the Roadmap).
+The next fix is a shared store for sessions and rate limits, such as Upstash Redis (see the Roadmap).
 
 Once that is in place, deploying means:
 1. Set every setting from the [environment table](#settings-you-need) in the hosting dashboard. Never commit `.env`.
@@ -366,7 +389,7 @@ Once that is in place, deploying means:
 | Problem | What to check |
 |---|---|
 | The app asks for an access token | Enter the `API_TOKEN` value from `.env` (not the variable name). Make sure the value is at least 32 characters |
-| "Set API_TOKEN (at least 32 characters) in .env" | The server did not load `.env`. Start it with `node --env-file=.env server/index.js` |
+| "Set API_TOKEN (at least 32 characters) in .env" | The server did not load `.env`. Put `API_TOKEN` in `.env` in the project folder and restart with `npm start` |
 | "PayPal is not configured" | `PAYPAL_CLIENT_ID` or `PAYPAL_CLIENT_SECRET` is empty, or the server was not restarted after editing `.env` |
 | PayPal sign-in failed (401) | Check the client ID and secret belong to the same sandbox app. Check the sandbox setting |
 | Webhook events are not arriving | PayPal cannot reach `localhost`. Use a tunnel for testing, and check `PAYPAL_WEBHOOK_ID` |
@@ -384,8 +407,9 @@ Once that is in place, deploying means:
 ## Roadmap
 
 **Next**
-- Sign in with PayPal (logic is built and tested; routes and button to be wired)
-- Hosted database for storage, sessions and rate limits, then deployment to Vercel
+- Live sandbox test of sign-in with PayPal
+- Shared store for sessions and rate limits (Upstash Redis), then deployment
+- PayPal partner onboarding, so each freelancer's invoices are paid into their own PayPal account
 - Reminders screen in the app
 - Browser checks for the proof, project and dictation screens
 - Live sandbox test of invoices, webhooks and reminders

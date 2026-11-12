@@ -3,12 +3,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { createStore } = require("../server/store.js");
+const { createJsonStore, DEVELOPER_OWNER } = require("../server/store.js");
 const { verifyWebhook, applyEvent, HEADERS } = require("../server/webhooks.js");
+
+const OWNER = DEVELOPER_OWNER;
 
 function tempStore() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fp-store-"));
-  return createStore(path.join(dir, "store.json"));
+  return createJsonStore(path.join(dir, "store.json"));
 }
 
 const NOW = Date.parse("2026-11-02T10:01:00Z");
@@ -53,57 +55,66 @@ test("verifyWebhook refuses to run without a webhook id", async () => {
   await assert.rejects(verifyWebhook({ headers: headers(), rawBody: "{}", webhookId: null, getToken: async () => "t" }), /PAYPAL_WEBHOOK_ID/);
 });
 
-test("a PAID event marks a known invoice paid", () => {
+test("a PAID event marks a known invoice paid", async () => {
   const store = tempStore();
-  store.upsert("INV2-1", { number: "FP-1", status: "SENT" });
-  const r = applyEvent(paidEvent, store);
+  await store.saveInvoice(OWNER, "INV2-1", { number: "FP-1", status: "SENT" });
+  const r = await applyEvent(paidEvent, store);
   assert.equal(r.changed, true);
-  assert.equal(store.get("INV2-1").status, "PAID");
-  assert.equal(store.get("INV2-1").paidAt, "2026-11-02T10:00:00Z");
+  assert.equal((await store.findInvoice("INV2-1")).status, "PAID");
+  assert.equal((await store.findInvoice("INV2-1")).paidAt, "2026-11-02T10:00:00Z");
 });
 
-test("the same event delivered twice changes nothing the second time", () => {
+test("the same event delivered twice changes nothing the second time", async () => {
   const store = tempStore();
-  store.upsert("INV2-1", { status: "SENT" });
-  applyEvent(paidEvent, store);
-  const again = applyEvent(paidEvent, store);
+  await store.saveInvoice(OWNER, "INV2-1", { status: "SENT" });
+  await applyEvent(paidEvent, store);
+  const again = await applyEvent(paidEvent, store);
   assert.equal(again.changed, false);
   assert.equal(again.reason, "duplicate event");
 });
 
-test("an event for an unknown invoice is ignored", () => {
+test("an event for an unknown invoice is ignored", async () => {
   const store = tempStore();
-  assert.equal(applyEvent(paidEvent, store).reason, "unknown invoice");
+  assert.equal((await applyEvent(paidEvent, store)).reason, "unknown invoice");
 });
 
-test("PAID is not undone by a later SENT update", () => {
+test("PAID is not undone by a later SENT update", async () => {
   const store = tempStore();
-  store.upsert("INV2-1", { status: "SENT" });
-  applyEvent(paidEvent, store);
-  store.upsert("INV2-1", { status: "SENT" });
-  assert.equal(store.get("INV2-1").status, "PAID");
+  await store.saveInvoice(OWNER, "INV2-1", { status: "SENT" });
+  await applyEvent(paidEvent, store);
+  await store.saveInvoice(OWNER, "INV2-1", { status: "SENT" });
+  assert.equal((await store.findInvoice("INV2-1")).status, "PAID");
 });
 
-test("a cancelled event is recorded", () => {
+test("a cancelled event is recorded", async () => {
   const store = tempStore();
-  store.upsert("INV2-1", { status: "SENT" });
-  const r = applyEvent({ id: "WH-2", event_type: "INVOICING.INVOICE.CANCELLED", resource: { id: "INV2-1" } }, store);
+  await store.saveInvoice(OWNER, "INV2-1", { status: "SENT" });
+  const r = await applyEvent({ id: "WH-2", event_type: "INVOICING.INVOICE.CANCELLED", resource: { id: "INV2-1" } }, store);
   assert.equal(r.status, "CANCELLED");
 });
 
-test("unrelated events are not handled but do not fail", () => {
+test("unrelated events are not handled but do not fail", async () => {
   const store = tempStore();
-  store.upsert("INV2-1", { status: "SENT" });
-  const r = applyEvent({ id: "WH-3", event_type: "PAYMENT.CAPTURE.COMPLETED", resource: { id: "INV2-1" } }, store);
+  await store.saveInvoice(OWNER, "INV2-1", { status: "SENT" });
+  const r = await applyEvent({ id: "WH-3", event_type: "PAYMENT.CAPTURE.COMPLETED", resource: { id: "INV2-1" } }, store);
   assert.equal(r.changed, false);
 });
 
-test("the store survives a restart", () => {
+test("a webhook updates the invoice whichever freelancer owns it, and keeps that owner", async () => {
+  const store = tempStore();
+  await store.saveInvoice("paypal:maya", "INV2-1", { status: "SENT" });
+  const r = await applyEvent(paidEvent, store);
+  assert.equal(r.changed, true, "PayPal events are not tied to a freelancer session");
+  assert.equal((await store.getInvoice("paypal:maya", "INV2-1")).status, "PAID");
+  assert.equal(await store.getInvoice(OWNER, "INV2-1"), null, "other owners still see nothing");
+});
+
+test("the store survives a restart", async () => {
   const store = tempStore();
   const file = store.file;
-  store.upsert("INV2-9", { number: "FP-9", status: "SENT" });
-  const reopened = createStore(file);
-  assert.equal(reopened.get("INV2-9").number, "FP-9");
+  await store.saveInvoice(OWNER, "INV2-9", { number: "FP-9", status: "SENT" });
+  const reopened = createJsonStore(file);
+  assert.equal((await reopened.getInvoice(OWNER, "INV2-9")).number, "FP-9");
 });
 
 test("a webhook delivered outside the replay window is refused, even with a valid signature", async () => {
