@@ -41,23 +41,23 @@ ClearPaid is a web app for freelancers and small teams, built for the PayPal "Bu
 
 | Area | State |
 |---|---|
-| Invoices through PayPal (create, send, status) | Built. Needs sandbox keys to run live. Not yet run against a live sandbox |
-| Payment webhooks (signature and freshness checks) | Built and unit-tested. Needs a webhook ID and a public URL to receive events |
+| Invoices through PayPal (create, send, status) | Built. Sandbox credentials verified against PayPal's OAuth endpoint. Full invoice flow not yet run end to end |
+| Payment webhooks (signature and freshness checks) | Built and unit-tested. Needs a webhook ID and a public URL to receive events. Not yet confirmed with a live PayPal event |
 | Proof of invoice (signed QR code and public page) | Built and tested |
-| Shared projects (split and per-share invoices) | Server built and tested. App screen wired, not yet checked in a browser |
-| Payment reminders (approve-then-send) | Server built and tested. App screen not yet added |
+| Shared projects (split and per-share invoices) | Server built and tested. Screen in the desktop site, not yet checked in a browser |
+| Payment reminders (approve-then-send) | Server built and tested. Screen in the desktop site, not yet checked in a browser |
 | AI replies (classification, drafts, scope gate) | Built. Works with free keys or rules |
 | Voice (dictation and voice-note transcription) | Built. Voice notes need a Groq key. Groq's Whisper model availability needs confirming |
 | Hindi and English interface | Built and checked in a browser |
 | Ledger export (CSV, formula-safe) | Built and unit-tested |
-| Sign in with PayPal | Built: sign-in routes and button. Not yet run against a live sandbox app |
+| Sign in with PayPal | Built: sign-in routes, button and a demo sign-in for judges. Not yet run end to end against a live sandbox app |
 | Per-user data | Built and tested. Each freelancer sees only their own invoices, projects and reminders |
 | Hosted database | Built: Postgres when `DATABASE_URL` is set, tested on a real Postgres server. Sessions and rate limits are still in memory |
 | Pay link (one-click PayPal order per invoice) | Built and unit-tested. Needs sandbox keys to run live. Approve-link name and return URL fields still to be checked in the sandbox |
 | Real PayPal fees (Transaction Search) | Built and unit-tested. Shows the fees PayPal actually charged on your paid invoices, not estimates. Needs sandbox keys and the reporting permission |
-| Hosting | Not yet deployed |
+| Hosting | Deployed on Render at https://clearpaid.onrender.com. The free plan sleeps after about 15 minutes idle, so the first load can take 20 to 60 seconds. The deployed build may lag behind the latest commit until Render redeploys |
 
-Automated tests: see [Tests](#tests). All pass at the time of writing.
+Automated tests: see [Tests](#tests). At the last run: 254 tests, 241 passed, 13 skipped, 0 failed.
 
 ---
 
@@ -242,7 +242,7 @@ Use the **हिन्दी / English** button at the top of the app to switch 
 
 ## API reference
 
-All API routes need the header `Authorization: Bearer <API_TOKEN>`, except `GET /api/health` and the PayPal webhook. Requests and responses are JSON.
+All API routes need the header `Authorization: Bearer <API_TOKEN>`, or a browser session cookie from sign in with PayPal or the demo sign-in. `GET /api/health` and the PayPal webhook are public. Requests and responses are JSON.
 
 | Method and path | Purpose |
 |---|---|
@@ -263,6 +263,13 @@ All API routes need the header `Authorization: Bearer <API_TOKEN>`, except `GET 
 | `POST /api/ai/draft` | Draft a reply for a message type |
 | `POST /api/ai/transcribe` | Turn a voice note into text (needs a Groq key) |
 | `POST /api/assistant` | Ask a question about invoices, payments or clients. Off-topic questions are refused |
+| `GET /api/me` | The signed-in freelancer (PayPal account, demo visitor or developer token) |
+| `GET /api/activity` | Timeline of what PayPal did for each invoice, newest first |
+| `GET /api/paypal/fees?days=30` | Fees PayPal actually charged on paid invoices in the last 1 to 90 days (needs the reporting permission) |
+| `GET /auth/paypal/start` | Starts sign in with PayPal (OpenID Connect). Redirects to PayPal |
+| `GET /auth/paypal/callback` | PayPal returns here after sign in. Checks the one-time state value |
+| `GET /auth/demo` | Starts the demo sign-in for judges |
+| `GET /auth/logout` | Ends the browser session |
 
 Errors return a short message. Server errors return a generic message, and the detail stays in the server log.
 
@@ -289,7 +296,7 @@ ClearPaid handles invoices and money, so the defaults are strict. Here is what t
 - **Safe spreadsheet export.** Cells that could run formulas in a spreadsheet are escaped.
 - **Localhost by default.** The server listens on `127.0.0.1` unless you set `HOST`.
 
-**Not finished yet:** user accounts and sign-in, HTTPS on a public domain, removing the remaining inline scripts from the browser policy, an independent security review and penetration test, and a written data-retention schedule. See `legal/security.html` for the full list.
+**Not finished yet:** sessions and rate limits are still in memory (so a restart signs everyone out), testing sign in with PayPal against a live sandbox app, removing the remaining inline scripts from the browser policy, an independent security review and penetration test, and a written data-retention schedule. The live site is served over HTTPS by Render. See `legal/security.html` for the full list.
 
 ---
 
@@ -322,6 +329,8 @@ collections-assistant/
 │   ├── index.js            HTTP server, routes, static files, security headers
 │   ├── env.js              loads .env into the environment (no dependency)
 │   ├── paypal.js           PayPal sandbox client (invoices, status, reminders)
+│   ├── fees.js             real PayPal fees from Transaction Search (paid invoices only)
+│   ├── activity.js         timeline of what PayPal did for each invoice
 │   ├── webhooks.js         PayPal webhook verification and event handling
 │   ├── reminders.js        overdue finder, approval, weekly and daily limits
 │   ├── project.js          shared project splits (cent-exact)
@@ -335,6 +344,7 @@ collections-assistant/
 │   └── store-postgres.js   hosted Postgres store, same rules, tables created on start
 ├── scripts/
 │   ├── build-shells.js     builds the mobile and desktop pages from freelancer/shared (run after editing shared/)
+│   ├── upload-images.js    uploads landing and app images to Cloudinary
 │   ├── smoke.js            live end-to-end checks against a running server
 │   ├── repeat-smoke.js     runs the smoke checks several times on fresh servers
 │   └── test-db.js          runs the Postgres store tests on a temporary local Postgres server
@@ -369,18 +379,23 @@ The suite uses Node's built-in test runner and needs no keys or network access. 
 
 ## Deployment
 
-ClearPaid is written as a single Node server with static pages. It is not yet ready for serverless hosting such as Vercel, for two reasons:
+ClearPaid is a single Node server with static pages. It is deployed on **Render** at https://clearpaid.onrender.com. The repository has no Render configuration file, so the service settings live in the Render dashboard. It is not set up for serverless hosting such as Vercel, for two reasons:
 
-1. **Storage.** Invoices and projects are saved in Postgres when `DATABASE_URL` is set. Without it, a local JSON file is used, which hosting platforms may not keep between restarts.
+1. **Storage.** Invoices and projects are saved in Postgres when `DATABASE_URL` is set. Without it, a local JSON file is used, which hosting platforms may not keep between restarts. On Render's free plan, set `DATABASE_URL` to a Render Postgres database. Free Render Postgres databases expire after 30 days.
 2. **Sessions and rate limits.** These still live in the server's memory, so a restart signs everyone out and resets the limits.
 
 The next fix is a shared store for sessions and rate limits, such as Upstash Redis (see the Roadmap).
 
-Once that is in place, deploying means:
-1. Set every setting from the [environment table](#settings-you-need) in the hosting dashboard. Never commit `.env`.
-2. Set `PUBLIC_URL` to your HTTPS address.
-3. Register the PayPal webhook at `PUBLIC_URL/api/webhooks/paypal`, and the sign-in return address at `PUBLIC_URL/auth/paypal/callback` once sign-in is wired in.
-4. Check `/api/health`, then run one full test invoice in the sandbox.
+**Sleeping on the free plan.** Render's free web services sleep after about 15 minutes without requests. The first request after that can take 20 to 60 seconds. Options:
+- Use a paid Render instance, which does not sleep.
+- Keep the free instance awake with a scheduled ping to `PUBLIC_URL/api/health` every 10 minutes, from a service such as UptimeRobot or cron-job.org, or a scheduled GitHub Action. This is a workaround, not a guarantee.
+
+**Deploying or redeploying on Render:**
+1. Connect the GitHub repository (`Anand2k29/ClearPaid`, branch `main`). Set the build command to `npm install` and the start command to `npm start`.
+2. In the Environment tab, set every setting from the [environment table](#settings-you-need). Never commit `.env`. Set `PUBLIC_URL` to `https://clearpaid.onrender.com`, or your own domain.
+3. Push to `main` (auto-deploy), or use **Manual Deploy → Deploy latest commit**. Check the Events tab to confirm the new build is live.
+4. Register the PayPal webhook at `PUBLIC_URL/api/webhooks/paypal`, and add the sign-in return address `PUBLIC_URL/auth/paypal/callback` to the sandbox app's allowed redirect URLs.
+5. Check `/api/health`. It should show `"paypalConfigured": true`, and once the latest build is live, `paypalFeatures` and `storage`. Then run one full test invoice in the sandbox.
 
 ---
 
@@ -401,6 +416,10 @@ Once that is in place, deploying means:
 | "This PDF has no text layer" | The PDF is a scan. Upload a photo of it instead |
 | "Reminder not sent: daily limit reached" | The cap is five reminders a day. It resets the next day |
 | Layout looks wrong on a phone | Hard-refresh the page. Check the browser's device mode |
+| The live site takes a minute to load | The free Render instance was asleep. Wait for it to wake, or use a keep-alive ping (see Deployment) |
+| The live site is missing a recent change | Render has not deployed the latest commit. Check the service's Events tab and deploy the latest commit |
+| Live site says AI uses rules | Add `GROQ_API_KEYS` and `GEMINI_API_KEYS` in Render's Environment tab, then redeploy |
+| Signed out after a restart | Sessions are kept in memory. Sign in again (see Security model) |
 
 ---
 
@@ -408,11 +427,12 @@ Once that is in place, deploying means:
 
 **Next**
 - Live sandbox test of sign-in with PayPal
-- Shared store for sessions and rate limits (Upstash Redis), then deployment
+- Shared store for sessions and rate limits (Upstash Redis)
+- Keep the Render deployment current: deploy the latest commit and set the AI keys in Render
+- Decide how to keep the free Render instance awake, or move to a paid instance
 - PayPal partner onboarding, so each freelancer's invoices are paid into their own PayPal account
-- Reminders screen in the app
-- Browser checks for the proof, project and dictation screens
-- Live sandbox test of invoices, webhooks and reminders
+- Browser checks for the proof, project, reminder and dictation screens
+- Live sandbox test of invoices, webhooks and reminders, including the webhook URL on Render
 
 **Later**
 - User accounts with separate data for each person
